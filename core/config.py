@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     """DID WBA configuration settings."""
     
     # Server settings
-    HOST: str = os.getenv("HOST", "0.0.0.0")
+    HOST: str = os.getenv("HOST", "localhost")
     PORT: int = int(os.getenv("PORT", "8000"))
     DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
     
