@@ -101,7 +101,12 @@ async def client_example(unique_id: str = None):
         logging.error(f"Error in client example: {e}")
 
 
+import threading
+import time
+
+
 if __name__ == "__main__":
+    
     set_log_color_level(logging.INFO)
     
     # 解析命令行参数
@@ -111,20 +116,29 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, help=f"Server port (default: {settings.PORT})", default=settings.PORT)
     
     args = parser.parse_args()
+    client_args = args  # 保存到全局变量以供启动事件使用
     
     if args.port != settings.PORT:
         settings.PORT = args.port
     
+    # 如果开启了客户端模式，在单独线程中运行客户端示例
     if args.client:
-        logging.info("Running client example...")
-        asyncio.run(client_example(args.unique_id))
-    else:
-        logging.info(f"Starting DID WBA Server on {settings.HOST}:{settings.PORT}")
-        
-        # Run the server
-        uvicorn.run(
-            "did_server:app",
-            host=settings.HOST,
-            port=settings.PORT,
-            reload=settings.DEBUG
-        )
+        def run_client():
+            # 等待2秒确保服务器已启动
+            time.sleep(2)
+            # 在新线程中创建事件循环运行客户端示例
+            asyncio.run(client_example(args.unique_id))
+            
+        thread = threading.Thread(target=run_client, daemon=True)
+        thread.start()
+        logging.info("客户端线程已启动，将在2秒后执行")
+    
+    logging.info(f"Starting DID WBA Server on {settings.HOST}:{settings.PORT}")
+    
+    # 运行服务器
+    uvicorn.run(
+        "did_server:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG
+    )

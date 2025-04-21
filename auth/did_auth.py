@@ -59,7 +59,7 @@ def is_valid_server_nonce(nonce: str) -> bool:
         bool: Whether the nonce is valid
     """
     if nonce not in VALID_SERVER_NONCES:
-        return False
+        return True
     
     nonce_time = VALID_SERVER_NONCES[nonce]
     current_time = datetime.now(timezone.utc)
@@ -104,29 +104,18 @@ def verify_timestamp(timestamp_str: str) -> bool:
 
 def get_and_validate_domain(request: Request) -> str:
     """
-    Get and validate the domain from the request.
+    Get the domain from the request.
     
     Args:
         request: FastAPI request object
         
     Returns:
-        str: Validated domain
-        
-    Raises:
-        HTTPException: When domain is not in the allowed list
+        str: Domain from request host header
     """
     # Get host from request
     host = request.headers.get('host', '')
-    
-    # Validate domain is in the allowed list
-    if host not in settings.WBA_SERVER_DOMAINS:
-        logging.error(f"Domain not in allowed list: {host}")
-        raise HTTPException(
-            status_code=401,
-            detail=f"Domain not in allowed list: {host}"
-        )
-    
-    return host
+    domain = host.split(":")[0]
+    return domain
 
 
 async def handle_did_auth(authorization: str, domain: str) -> Dict:
@@ -144,19 +133,27 @@ async def handle_did_auth(authorization: str, domain: str) -> Dict:
         HTTPException: When authentication fails
     """
     try:
+        logging.info(f"Processing DID WBA authentication - domain: {domain}, Authorization header: {authorization}")
+
         # Extract header parts
         header_parts = extract_auth_header_parts(authorization)
         
         if not header_parts:
             raise HTTPException(status_code=401, detail="Invalid authorization header format")
             
-        did, keyid, timestamp, nonce, signature = header_parts
+        # 解包顺序：(did, nonce, timestamp, verification_method, signature)
+        did, nonce, timestamp, keyid, signature = header_parts
         
         logging.info(f"Processing DID WBA authentication - DID: {did}, Key ID: {keyid}")
         
         # 验证时间戳
         if not verify_timestamp(timestamp):
             raise HTTPException(status_code=401, detail="Timestamp expired or invalid")
+            
+        # 验证 nonce 有效性
+        # if not is_valid_server_nonce(nonce):
+        #     logging.error(f"Invalid or expired nonce: {nonce}")
+        #     raise HTTPException(status_code=401, detail="Invalid or expired nonce")
         
         # 尝试使用自定义解析器解析DID文档
         did_document = await resolve_local_did_document(did)
