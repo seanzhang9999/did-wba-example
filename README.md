@@ -40,20 +40,34 @@ poetry install
 
 ## 运行示例
 
+### 重要提示：需要先启动服务器，再启动客户端
+
+要看到完整的交互效果，必须先启动一个服务器模式，然后再启动客户端模式。因为客户端需要连接到一个已运行的服务器进行认证和交互。
+
+#### 第一步：启动服务器
+
 ```bash
 # 确保虚拟环境已激活
 source .venv/bin/activate
 
-# 运行服务器模式
+# 在第一个终端窗口启动服务器
 python did_server.py
+```
 
-# 运行客户端模式
-python did_server.py --client
+#### 第二步：启动客户端
 
+```bash
+# 在第二个终端窗口启动客户端，指定不同端口
+python did_server.py --client --port 8001
+```
+
+#### 其他命令选项
+
+```bash
 # 指定端口运行服务器
 python did_server.py --port 8001
 
-# 使用特定ID运行客户端
+# 使用特定id运行客户端
 python did_server.py --client --unique-id your_unique_id
 ```
 
