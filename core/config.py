@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     
     # JWT settings
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "default_jwt_secret_key_please_change")
-    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "RS256")  # Changed to RS256 for asymmetric keys
+    # JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "RS256")  # Changed to RS256 for asymmetric keys
+    JWT_ALGORITHM: str =  "RS256" # Changed to RS256
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
     JWT_PRIVATE_KEY_PATH: str = os.getenv("JWT_PRIVATE_KEY_PATH", os.path.join(Path(__file__).parents[1], "doc/test_jwt_key/private_key.pem"))
     JWT_PUBLIC_KEY_PATH: str = os.getenv("JWT_PUBLIC_KEY_PATH", os.path.join(Path(__file__).parents[1], "doc/test_jwt_key/public_key.pem"))

@@ -86,9 +86,18 @@ async def test_endpoint(request: Request) -> Dict:
             "message": "No authentication provided, but access allowed"
         }
     
-    return {
+     # if not user.get("access_token") : 
+    if user.get("access_token") is not None:
+         return {
         "status": "success",
+        "message": "Successfully authenticated and return token",
+        "did": user.get("did"),
+        "Authorization": "bearer " + user.get("access_token"),
+         "authenticated": True
+        }
+    return {
+         "status": "success",
         "message": "Successfully authenticated",
         "did": user.get("did"),
-        "authenticated": True
+          "authenticated": True
     }
