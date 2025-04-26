@@ -27,7 +27,6 @@ from utils.log_base import set_log_color_level
 # Create FastAPI application
 app = create_app()
 
-
 @app.get("/", tags=["status"])
 async def root():
     """
@@ -119,48 +118,11 @@ if __name__ == "__main__":
     parser.add_argument("--unique-id", type=str, help="Unique ID for client example", default=None)
     parser.add_argument("--port", type=int, help=f"Server port (default: {settings.PORT})", default=settings.PORT)
     
-    args = parser.parse_args()
-    client_args = args  # 保存到全局变量以供启动事件使用
-    
-    if args.port != settings.PORT:
-        settings.PORT = args.port
-    
-    # 如果开启了客户端模式，在单独线程中运行客户端示例
-    if args.client:
-        def run_client():
-            # 等待2秒确保服务器已启动
-            time.sleep(2)
-            # 在新线程中创建事件循环运行客户端示例
-            asyncio.run(client_example(args.unique_id))
-            
-        thread = threading.Thread(target=run_client, daemon=True)
-        thread.start()
-        logging.info("客户端线程已启动，将在2秒后执行")
-    
-    logging.info(f"Starting DID WBA Server on {settings.HOST}:{settings.PORT}")
-    
-    # 运行服务器
-
-    def run_server():
-        #在子线程中运行uvicorn服务器
-        config = uvicorn.Config(
-            "did_server:app",
-            host=settings.HOST,
-            port=settings.PORT,
-            reload=settings.DEBUG,
-            # 关闭内部信号处理
-            use_colors=True,
-            log_level="info"
-        )
-        server = uvicorn.Server(config)
-        # 这一行很关键：关闭uvicorn自带的信号处理
-        server.install_signal_handlers = lambda: None
-        server.run()
-
+ 
     def main():
         # 创建并启动子线程
-        server_thread = threading.Thread(target=run_server, daemon=True)
-        server_thread.start()
+        # server_thread = threading.Thread(target=run_server, daemon=False)
+        # server_thread.start()
         
         print(f"服务器已在 http://{settings.HOST}:{settings.PORT} 启动")
         print("输入'exit'可以退出服务")
@@ -172,13 +134,13 @@ if __name__ == "__main__":
                 if command == "exit":
                     print("正在关闭服务...")
                     # 发送终止信号给主线程，使其优雅关闭
-                    server_thread.should_exit = True
+                    # server_thread.should_exit = True
                     break
             except KeyboardInterrupt:
                 print("检测到退出信号，正在关闭...")
                 break
         # 程序退出时，通过信号关闭
-        server_thread.join(timeout=5)
+        # server_thread.join(timeout=5)
         print("服务已关闭")
         sys.exit(0) 
 
