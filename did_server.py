@@ -137,27 +137,61 @@ def run_server():
         server_running = False
 
 
-def run_client(unique_id_arg=None):
-    """在子线程中运行客户端示例"""
+def run_client(port=None, unique_id_arg=None):
+    """在子线程中运行客户端示例
+    
+    Args:
+        port: 可选的目标服务器端口号
+        unique_id_arg: 可选的唯一ID
+    """
     global client_running
     try:
         # 等待2秒确保服务器已启动
         time.sleep(2)
         # 在新线程中创建事件循环运行客户端示例
         client_running = True
+        # 如果提供了端口号，临时修改目标服务器端口设置
+        original_port = None
+        if port is not None:
+            try:
+                port_num = int(port)
+                original_port = settings.TARGET_SERVER_PORT
+                settings.TARGET_SERVER_PORT = port_num
+                logging.info(f"使用自定义目标服务器端口: {port_num}")
+            except ValueError:
+                logging.error(f"无效的端口号: {port}，使用默认端口: {settings.TARGET_SERVER_PORT}")
+        
+        # 运行客户端示例
         asyncio.run(client_example(unique_id_arg))
+        
+        # 恢复原始端口设置
+        if original_port is not None:
+            settings.TARGET_SERVER_PORT = original_port
     except Exception as e:
         logging.error(f"客户端运行出错: {e}")
     finally:
         client_running = False
 
 
-def start_server():
-    """启动服务器线程"""
+def start_server(port=None):
+    """启动服务器线程
+    
+    Args:
+        port: 可选的服务器端口号，如果提供则会覆盖默认端口
+    """
     global server_thread, server_running
     if server_thread and server_thread.is_alive():
         print("服务器已经在运行中")
         return
+    
+    # 如果提供了端口号，则临时修改设置中的端口
+    if port is not None:
+        try:
+            port_num = int(port)
+            settings.PORT = port_num
+            print(f"使用自定义端口: {port_num}")
+        except ValueError:
+            print(f"无效的端口号: {port}，使用默认端口: {settings.PORT}")
     
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()
@@ -176,7 +210,7 @@ def stop_server():
     server_running = False
     
     # 确保server_instance存在并设置should_exit属性
-    if server_instance:
+    if server_instance: 
         server_instance.should_exit = True
     
     # 等待服务器线程结束
@@ -189,8 +223,13 @@ def stop_server():
         server_instance = None
 
 
-def start_client(unique_id_arg=None):
-    """启动客户端线程"""
+def start_client(port=None, unique_id_arg=None):
+    """启动客户端线程
+    
+    Args:
+        port: 可选的目标服务器端口号
+        unique_id_arg: 可选的唯一ID
+    """
     global client_thread, client_running, unique_id
     if client_thread and client_thread.is_alive():
         print("客户端已经在运行中")
@@ -199,9 +238,11 @@ def start_client(unique_id_arg=None):
     if unique_id_arg:
         unique_id = unique_id_arg
     
-    client_thread = threading.Thread(target=run_client, args=(unique_id,), daemon=True)
+    client_thread = threading.Thread(target=run_client, args=(port, unique_id), daemon=True)
     client_thread.start()
     print("客户端已启动")
+    if port:
+        print(f"使用目标服务器端口: {port}")
 
 
 def stop_client():
@@ -235,9 +276,9 @@ def show_status():
 def show_help():
     """显示帮助信息"""
     print("可用命令:")
-    print("  start server - 启动服务器")
+    print("  start server [port] - 启动服务器，可选指定端口号")
     print("  stop server - 停止服务器")
-    print("  start client [unique_id] - 启动客户端，可选指定唯一ID")
+    print("  start client [port] [unique_id] - 启动客户端，可选指定目标服务器端口和唯一ID")
     print("  stop client - 停止客户端")
     print("  status - 显示服务器和客户端状态")
     print("  help - 显示此帮助信息")
@@ -256,6 +297,7 @@ def main():
     parser.add_argument("--server", action="store_true", help="Run server at startup", default=False)
     parser.add_argument("--unique-id", type=str, help="Unique ID for client example", default=None)
     parser.add_argument("--port", type=int, help=f"Server port (default: {settings.PORT})", default=settings.PORT)
+    parser.add_argument("--target-port", type=int, help=f"Target server port for client (default: {settings.TARGET_SERVER_PORT})", default=None)
     
     args = parser.parse_args()
     
@@ -270,7 +312,7 @@ def main():
         start_server()
     
     if args.client:
-        start_client(args.unique_id)
+        start_client(args.target_port, args.unique_id)
     
     print("DID WBA 示例程序已启动")
     print("输入'help'查看可用命令，输入'exit'退出程序")
@@ -290,15 +332,25 @@ def main():
             elif command == "status":
                 show_status()
             elif command.startswith("start server"):
-                start_server()
+                # 检查是否指定了端口号
+                parts = command.split()
+                if len(parts) > 2:
+                    start_server(parts[2])
+                else:
+                    start_server()
             elif command.startswith("stop server"):
                 stop_server()
             elif command.startswith("start client"):
-                # 检查是否指定了unique_id
+                # 检查是否指定了port和unique_id
                 parts = command.split()
-                if len(parts) > 2:
+                if len(parts) > 3:
+                    # 同时指定了port和unique_id
+                    start_client(parts[2], parts[3])
+                elif len(parts) > 2:
+                    # 只指定了port
                     start_client(parts[2])
                 else:
+                    # 没有指定参数
                     start_client()
             elif command.startswith("stop client"):
                 stop_client()
