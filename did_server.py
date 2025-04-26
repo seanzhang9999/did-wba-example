@@ -1,6 +1,4 @@
-"""
-DID WBA Example with both Client and Server capabilities.
-"""
+"""DID WBA Example with both Client and Server capabilities."""
 import os
 import json
 import logging
@@ -8,6 +6,11 @@ import uvicorn
 import asyncio
 import secrets
 import argparse
+import signal
+import threading
+import sys
+import time
+
 from pathlib import Path
 
 from core.config import settings
@@ -101,44 +104,219 @@ async def client_example(unique_id: str = None):
         logging.error(f"Error in client example: {e}")
 
 
-import threading
-import time
+# 全局变量，用于存储服务器和客户端线程
+server_thread = None
+client_thread = None
+server_running = False
+client_running = False
+unique_id = None
+server_instance = None  # 存储uvicorn.Server实例
 
 
-if __name__ == "__main__":
+def run_server():
+    """在子线程中运行uvicorn服务器"""
+    global server_running, server_instance
+    try:
+        config = uvicorn.Config(
+            "did_server:app",
+            host=settings.HOST,
+            port=settings.PORT,
+            reload=settings.DEBUG,
+            # 关闭内部信号处理
+            use_colors=True,
+            log_level="info"
+        )
+        server_instance = uvicorn.Server(config)
+        # 这一行很关键：关闭uvicorn自带的信号处理
+        server_instance.install_signal_handlers = lambda: None
+        server_running = True
+        server_instance.run()
+    except Exception as e:
+        logging.error(f"服务器运行出错: {e}")
+    finally:
+        server_running = False
+
+
+def run_client(unique_id_arg=None):
+    """在子线程中运行客户端示例"""
+    global client_running
+    try:
+        # 等待2秒确保服务器已启动
+        time.sleep(2)
+        # 在新线程中创建事件循环运行客户端示例
+        client_running = True
+        asyncio.run(client_example(unique_id_arg))
+    except Exception as e:
+        logging.error(f"客户端运行出错: {e}")
+    finally:
+        client_running = False
+
+
+def start_server():
+    """启动服务器线程"""
+    global server_thread, server_running
+    if server_thread and server_thread.is_alive():
+        print("服务器已经在运行中")
+        return
+    
+    server_thread = threading.Thread(target=run_server, daemon=True)
+    server_thread.start()
+    print(f"服务器已在 http://{settings.HOST}:{settings.PORT} 启动")
+
+
+def stop_server():
+    """停止服务器线程"""
+    global server_thread, server_running, server_instance
+    if not server_thread or not server_thread.is_alive():
+        print("服务器未运行")
+        return
+    
+    print("正在关闭服务器...")
+    # 由于uvicorn没有优雅的关闭方法，我们需要设置server_instance的should_exit属性
+    server_running = False
+    
+    # 确保server_instance存在并设置should_exit属性
+    if server_instance:
+        server_instance.should_exit = True
+    
+    # 等待服务器线程结束
+    server_thread.join(timeout=5)
+    if server_thread.is_alive():
+        print("服务器关闭超时，可能需要重启程序")
+    else:
+        print("服务器已关闭")
+        server_thread = None
+        server_instance = None
+
+
+def start_client(unique_id_arg=None):
+    """启动客户端线程"""
+    global client_thread, client_running, unique_id
+    if client_thread and client_thread.is_alive():
+        print("客户端已经在运行中")
+        return
+    
+    if unique_id_arg:
+        unique_id = unique_id_arg
+    
+    client_thread = threading.Thread(target=run_client, args=(unique_id,), daemon=True)
+    client_thread.start()
+    print("客户端已启动")
+
+
+def stop_client():
+    """停止客户端线程"""
+    global client_thread, client_running
+    if not client_thread or not client_thread.is_alive():
+        print("客户端未运行")
+        return
+    
+    print("正在关闭客户端...")
+    client_running = False
+    client_thread.join(timeout=5)
+    if client_thread.is_alive():
+        print("客户端关闭超时，可能需要重启程序")
+    else:
+        print("客户端已关闭")
+        client_thread = None
+
+
+def show_status():
+    """显示当前服务器和客户端状态"""
+    server_status = "运行中" if server_thread and server_thread.is_alive() else "已停止"
+    client_status = "运行中" if client_thread and client_thread.is_alive() else "已停止"
+    
+    print(f"服务器状态: {server_status}")
+    print(f"客户端状态: {client_status}")
+    if unique_id:
+        print(f"当前客户端ID: {unique_id}")
+
+
+def show_help():
+    """显示帮助信息"""
+    print("可用命令:")
+    print("  start server - 启动服务器")
+    print("  stop server - 停止服务器")
+    print("  start client [unique_id] - 启动客户端，可选指定唯一ID")
+    print("  stop client - 停止客户端")
+    print("  status - 显示服务器和客户端状态")
+    print("  help - 显示此帮助信息")
+    print("  exit - 退出程序")
+
+
+def main():
+    """主函数，处理命令行输入"""
+    global unique_id
     
     set_log_color_level(logging.INFO)
     
     # 解析命令行参数
     parser = argparse.ArgumentParser(description="DID WBA Example with Client and Server capabilities")
-    parser.add_argument("--client", action="store_true", help="Run client example")
+    parser.add_argument("--client", action="store_true", help="Run client example at startup")
+    parser.add_argument("--server", action="store_true", help="Run server at startup", default=False)
     parser.add_argument("--unique-id", type=str, help="Unique ID for client example", default=None)
     parser.add_argument("--port", type=int, help=f"Server port (default: {settings.PORT})", default=settings.PORT)
     
     args = parser.parse_args()
-    client_args = args  # 保存到全局变量以供启动事件使用
     
     if args.port != settings.PORT:
         settings.PORT = args.port
     
-    # 如果开启了客户端模式，在单独线程中运行客户端示例
+    if args.unique_id:
+        unique_id = args.unique_id
+    
+    # 根据命令行参数启动服务
+    if args.server:
+        start_server()
+    
     if args.client:
-        def run_client():
-            # 等待2秒确保服务器已启动
-            time.sleep(2)
-            # 在新线程中创建事件循环运行客户端示例
-            asyncio.run(client_example(args.unique_id))
+        start_client(args.unique_id)
+    
+    print("DID WBA 示例程序已启动")
+    print("输入'help'查看可用命令，输入'exit'退出程序")
+    
+    # 主循环，处理用户输入
+    while True:
+        try:
+            command = input("> ").strip().lower()
             
-        thread = threading.Thread(target=run_client, daemon=True)
-        thread.start()
-        logging.info("客户端线程已启动，将在2秒后执行")
+            if command == "exit":
+                print("正在关闭服务...")
+                stop_client()
+                stop_server()
+                break
+            elif command == "help":
+                show_help()
+            elif command == "status":
+                show_status()
+            elif command.startswith("start server"):
+                start_server()
+            elif command.startswith("stop server"):
+                stop_server()
+            elif command.startswith("start client"):
+                # 检查是否指定了unique_id
+                parts = command.split()
+                if len(parts) > 2:
+                    start_client(parts[2])
+                else:
+                    start_client()
+            elif command.startswith("stop client"):
+                stop_client()
+            else:
+                print(f"未知命令: {command}")
+                print("输入'help'查看可用命令")
+                
+        except KeyboardInterrupt:
+            print("\n检测到退出信号，正在关闭...")
+            stop_client()
+            stop_server()
+            break
+        except Exception as e:
+            print(f"错误: {e}")
     
-    logging.info(f"Starting DID WBA Server on {settings.HOST}:{settings.PORT}")
-    
-    # 运行服务器
-    uvicorn.run(
-        "did_server:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG
-    )
+    print("程序已退出")
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
