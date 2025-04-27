@@ -10,6 +10,7 @@ import signal
 import threading
 import sys
 import time
+import httpx
 
 from pathlib import Path
 
@@ -97,6 +98,30 @@ async def client_example(unique_id: str = None):
             else:
                 logging.error(f"Token authentication failed! Status: {status}")
                 logging.error(f"Response: {response}")
+            # 进入命令行聊天模式
+            chat_url = f"{base_url}/wba/chat"
+            print("\n已认证，进入命令行聊天。输入 /q 退出。")
+            async with httpx.AsyncClient(timeout=300) as client:
+                while True:
+                    user_msg = input("你: ").strip()
+
+                    if user_msg == "/q":
+                        print("已退出聊天。\n")
+                        break
+                    try:
+                        resp = await client.post(
+                            chat_url,
+                            headers={"Authorization": f"Bearer {token}"},
+                            json={"message": user_msg}
+                        )
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            answer = data.get("answer", "[无回复]")
+                            print(f"助手: {answer}")
+                        else:
+                            print(f"[错误] 服务器返回: {resp.status_code} {resp.text}")
+                    except Exception as ce:
+                        print(f"[错误] 聊天请求失败: {ce}")
         else:
             logging.warning("No token received from server")
             
@@ -320,6 +345,12 @@ def main():
     # 主循环，处理用户输入
     while True:
         try:
+            # 如果客户端正在运行，则等待其退出，不处理命令
+            if client_running:
+                # print("客户端正在运行，等待其退出后再处理命令……")
+                while client_running:
+                    time.sleep(0.5)
+                print("客户端已退出，恢复命令行控制。")
             command = input("> ").strip().lower()
             
             if command == "exit":
@@ -340,6 +371,8 @@ def main():
                     start_server()
             elif command.startswith("stop server"):
                 stop_server()
+            elif command.startswith("stop client"):
+                stop_client()
             elif command.startswith("start client"):
                 # 检查是否指定了port和unique_id
                 parts = command.split()
@@ -352,8 +385,11 @@ def main():
                 else:
                     # 没有指定参数
                     start_client()
-            elif command.startswith("stop client"):
-                stop_client()
+                # 阻塞主进程直到 client_thread 结束，避免输入竞争
+                if client_thread:
+                    client_thread.join()
+                print("客户端已退出，恢复命令行控制。")
+                continue  # 跳过本轮命令输入
             else:
                 print(f"未知命令: {command}")
                 print("输入'help'查看可用命令")
