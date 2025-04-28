@@ -18,7 +18,7 @@ class ChatRequest(BaseModel):
     message: str
 
 @router.post("/wba/chat", summary="Chat with OpenRouter LLM")
-async def chat_with_llm(
+async def anp_nlp_service(
     chat_req: ChatRequest,
     authorization: Optional[str] = Header(None)
 ):

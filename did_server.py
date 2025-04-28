@@ -96,12 +96,12 @@ async def client_example(unique_id: str = None):
             if status == 200:
                 logging.info(f"Token authentication successful! Response: {response}")
                 # 发送默认消息"我是anp来敲门"到聊天接口
-                chat_url = f"{base_url}/wba/chat"
+                anp_nlp_url = f"{base_url}/wba/chat"
                 logging.info("发送默认消息到聊天接口")
                 try:
                     default_message = "我是anp来敲门"
                     chat_status, chat_response = await send_request_with_token(
-                        chat_url, 
+                        anp_nlp_url, 
                         token, 
                         method="POST", 
                         json_data={"message": default_message}
