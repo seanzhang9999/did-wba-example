@@ -95,33 +95,33 @@ async def client_example(unique_id: str = None):
             
             if status == 200:
                 logging.info(f"Token authentication successful! Response: {response}")
+                # 发送默认消息"我是anp来敲门"到聊天接口
+                chat_url = f"{base_url}/wba/chat"
+                logging.info("发送默认消息到聊天接口")
+                try:
+                    default_message = "我是anp来敲门"
+                    chat_status, chat_response = await send_request_with_token(
+                        chat_url, 
+                        token, 
+                        method="POST", 
+                        json_data={"message": default_message}
+                    )
+                    if chat_status == 200:
+                        logging.info(f"消息发送成功! 回复: {chat_response}")
+                        print(f"\n消息\"{default_message}\"已发送，服务器回复: {chat_response.get('answer', '[无回复]')}")
+                    else:
+                        logging.error(f"消息发送失败! 状态: {chat_status}")
+                        logging.error(f"响应: {chat_response}")
+                        print("\n消息发送失败，客户端示例完成。")
+                except Exception as ce:
+                    logging.error(f"发送消息时出错: {ce}")
+                    print(f"\n发送消息时出错: {ce}")
+                print("\n客户端示例完成。")
             else:
                 logging.error(f"Token authentication failed! Status: {status}")
                 logging.error(f"Response: {response}")
-            # 进入命令行聊天模式
-            chat_url = f"{base_url}/wba/chat"
-            print("\n已认证，进入命令行聊天。输入 /q 退出。")
-            async with httpx.AsyncClient(timeout=300) as client:
-                while True:
-                    user_msg = input("你: ").strip()
+                print("\n令牌认证失败，客户端示例完成。")
 
-                    if user_msg == "/q":
-                        print("已退出聊天。\n")
-                        break
-                    try:
-                        resp = await client.post(
-                            chat_url,
-                            headers={"Authorization": f"Bearer {token}"},
-                            json={"message": user_msg}
-                        )
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            answer = data.get("answer", "[无回复]")
-                            print(f"助手: {answer}")
-                        else:
-                            print(f"[错误] 服务器返回: {resp.status_code} {resp.text}")
-                    except Exception as ce:
-                        print(f"[错误] 聊天请求失败: {ce}")
         else:
             logging.warning("No token received from server")
             
