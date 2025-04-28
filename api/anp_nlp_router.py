@@ -17,7 +17,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")  # 用户需在环境�
 class ChatRequest(BaseModel):
     message: str
 
-@router.post("/wba/chat", summary="Chat with OpenRouter LLM")
+@router.post("/wba/anp-nlp", summary="ANP的NLP接口，Chat with OpenRouter LLM")
 async def anp_nlp_service(
     chat_req: ChatRequest,
     authorization: Optional[str] = Header(None)
@@ -48,6 +48,10 @@ async def anp_nlp_service(
                 logging.error(f"OpenRouter error: {resp.text}")
                 raise HTTPException(status_code=500, detail="OpenRouter query failed")
             data = resp.json()
+            # 确保data是预期的格式，并安全地提取answer
+            if not isinstance(data, dict) or 'choices' not in data or not data['choices']:
+                logging.error(f"Unexpected API response format: {data}")
+                raise HTTPException(status_code=500, detail="Unexpected API response format")
             answer = data['choices'][0]['message']['content']
             return JSONResponse(content={"answer": answer})
     except Exception as e:
