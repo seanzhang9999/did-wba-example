@@ -129,11 +129,13 @@ async def client_example(unique_id: str = None):
         logging.error(f"Error in client example: {e}")
 
 
-# 全局变量，用于存储服务器和客户端线程
+# 全局变量，用于存储服务器、客户端和聊天线程
 server_thread = None
 client_thread = None
+chat_thread = None
 server_running = False
 client_running = False
+chat_running = False
 unique_id = None
 server_instance = None  # 存储uvicorn.Server实例
 
@@ -287,13 +289,106 @@ def stop_client():
         client_thread = None
 
 
+async def run_chat():
+    """运行LLM聊天线程 - 直接调用OpenRouter API"""
+    global chat_running
+    try:
+        # 检查OpenRouter API密钥是否配置
+        openrouter_api_key = os.getenv("OPENROUTER_API_KEY", "")
+        if not openrouter_api_key:
+            print("[错误] 未配置OpenRouter API密钥，请在环境变量中设置OPENROUTER_API_KEY")
+            chat_running = False
+            return
+            
+        # OpenRouter API配置
+        openrouter_api_url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {openrouter_api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        print("\n已启动LLM聊天线程。输入消息与AI对话，输入 /q 退出。")
+        logging.info("聊天线程启动 - 直接调用OpenRouter API")
+        
+        # 进入聊天模式
+        async with httpx.AsyncClient(timeout=30) as client:
+            chat_running = True
+            while chat_running:
+                user_msg = input("你: ").strip()
+                
+                if user_msg.lower() == "/q":
+                    print("退出聊天线程。\n")
+                    break
+                    
+                try:
+                    # 准备请求数据
+                    payload = {
+                        "model": "deepseek/deepseek-chat-v3-0324:free",  # 免费模型
+                        "messages": [{"role": "user", "content": user_msg}],
+                        "max_tokens": 512
+                    }
+                    
+                    # 发送请求到OpenRouter API
+                    resp = await client.post(
+                        openrouter_api_url,
+                        headers=headers,
+                        json=payload
+                    )
+                    
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        answer = data['choices'][0]['message']['content']
+                        print(f"助手: {answer}")
+                    else:
+                        print(f"[错误] OpenRouter API返回: {resp.status_code} {resp.text}")
+                except Exception as ce:
+                    print(f"[错误] 聊天请求失败: {ce}")
+                    if not chat_running:  # 如果线程被外部终止
+                        break
+    except Exception as e:
+        logging.error(f"聊天线程出错: {e}")
+    finally:
+        chat_running = False
+
+
+def start_chat():
+    """启动LLM聊天线程 - 直接调用OpenRouter API"""
+    global chat_thread, chat_running
+    if chat_thread and chat_thread.is_alive():
+        print("聊天线程已经在运行中")
+        return
+    
+    chat_thread = threading.Thread(target=lambda: asyncio.run(run_chat()), daemon=True)
+    chat_thread.start()
+    print("LLM聊天线程已启动")
+
+
+def stop_chat():
+    """停止LLM聊天线程"""
+    global chat_thread, chat_running
+    if not chat_thread or not chat_thread.is_alive():
+        print("聊天线程未运行")
+        return
+    
+    print("正在关闭聊天线程...")
+    chat_running = False
+    chat_thread.join(timeout=5)
+    if chat_thread.is_alive():
+        print("聊天线程关闭超时，可能需要重启程序")
+    else:
+        print("聊天线程已关闭")
+        chat_thread = None
+
+
 def show_status():
-    """显示当前服务器和客户端状态"""
+    """显示当前服务器、客户端和聊天状态"""
     server_status = "运行中" if server_thread and server_thread.is_alive() else "已停止"
     client_status = "运行中" if client_thread and client_thread.is_alive() else "已停止"
+    chat_status = "运行中" if chat_thread and chat_thread.is_alive() else "已停止"
     
     print(f"服务器状态: {server_status}")
     print(f"客户端状态: {client_status}")
+    print(f"聊天状态: {chat_status}")
     if unique_id:
         print(f"当前客户端ID: {unique_id}")
 
@@ -305,7 +400,9 @@ def show_help():
     print("  stop server - 停止服务器")
     print("  start client [port] [unique_id] - 启动客户端，可选指定目标服务器端口和唯一ID")
     print("  stop client - 停止客户端")
-    print("  status - 显示服务器和客户端状态")
+    print("  start chat - 启动LLM聊天线程")
+    print("  stop chat - 停止LLM聊天线程")
+    print("  status - 显示服务器、客户端和聊天状态")
     print("  help - 显示此帮助信息")
     print("  exit - 退出程序")
 
@@ -345,16 +442,18 @@ def main():
     # 主循环，处理用户输入
     while True:
         try:
-            # 如果客户端正在运行，则等待其退出，不处理命令
-            if client_running:
-                # print("客户端正在运行，等待其退出后再处理命令……")
-                while client_running:
+            # 如果客户端或聊天线程正在运行，则等待其退出，不处理命令
+            if client_running or chat_running:
+                # 等待客户端或聊天线程退出
+                while client_running or chat_running:
                     time.sleep(0.5)
-                print("客户端已退出，恢复命令行控制。")
+                if not client_running and not chat_running:
+                    print("客户端或聊天线程已退出，恢复命令行控制。")
             command = input("> ").strip().lower()
             
             if command == "exit":
                 print("正在关闭服务...")
+                stop_chat()
                 stop_client()
                 stop_server()
                 break
@@ -390,6 +489,15 @@ def main():
                     client_thread.join()
                 print("客户端已退出，恢复命令行控制。")
                 continue  # 跳过本轮命令输入
+            elif command == "start chat":
+                start_chat()
+                # 阻塞主进程直到 chat_thread 结束，避免输入竞争
+                if chat_thread:
+                    chat_thread.join()
+                print("聊天线程已退出，恢复命令行控制。")
+                continue  # 跳过本轮命令输入
+            elif command == "stop chat":
+                stop_chat()
             else:
                 print(f"未知命令: {command}")
                 print("输入'help'查看可用命令")
