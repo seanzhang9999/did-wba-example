@@ -28,7 +28,9 @@ def create_app() -> FastAPI:
     
     # Configure logging
     logging.basicConfig(
+        #level=logging.INFO,
         level=logging.INFO,
+        
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
     
