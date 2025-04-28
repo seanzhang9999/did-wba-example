@@ -1,7 +1,6 @@
 """
 Chat API router for OpenRouter LLM chat relay.
 """
-from nt import environ
 import os
 import logging
 import httpx
@@ -10,6 +9,13 @@ from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
+from agent_connect.authentication import (
+    verify_auth_header_signature,
+    resolve_did_wba_document,
+    extract_auth_header_parts,
+    create_did_wba_document,
+    DIDWbaAuthHeader
+)
 
 from core.config import Settings
 
@@ -26,11 +32,30 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")  # 用户需在环境�
 class ChatRequest(BaseModel):
     message: str
 
+
+def get_and_validate_port(request: Request) -> str:
+    """
+    Get the domain from the request.
+    
+    Args:
+        request: FastAPI request object
+        
+    Returns:
+        str: Domain from request host header
+    """
+    # Get host from request
+    host = request.headers.get('host', '')
+    port = host.split(":")[1]
+    return port
+
 @router.post("/wba/anp-nlp", summary="ANP的NLP接口，Chat with OpenRouter LLM")
 async def anp_nlp_service(
+    request: Request,
     chat_req: ChatRequest,
     authorization: Optional[str] = Header(None)
 ):
+
+
     """
     Relay chat message to OpenRouter LLM and return the response.
     """
@@ -40,7 +65,8 @@ async def anp_nlp_service(
         raise HTTPException(status_code=400, detail="Empty message")
     if not OPENROUTER_API_KEY:
         raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
-
+    did = request.headers.get("DID")
+    requestport = get_and_validate_port(request)
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
@@ -69,7 +95,7 @@ async def anp_nlp_service(
                 "user_message": chat_req.message,
                 "assistant_message": answer
             }
-            await notify_chat_thread(message_data)
+            await notify_chat_thread(message_data,did)
             
             return JSONResponse(content={"answer": answer})
     except Exception as e:
@@ -78,13 +104,13 @@ async def anp_nlp_service(
                 "user_message": chat_req.message,
                 "assistant_message": f"白嫖的OpenRouter生气了:{e}"
             }
-        await notify_chat_thread(message_data)
+        await notify_chat_thread(message_data,did)
         return JSONResponse(content={"answer":  f"白嫖的OpenRouter生气了:{e}"})
         # logging.error(f"Chat relay error: {e}")
         # raise HTTPException(status_code=500, detail="Chat relay failed")
 
 
-async def notify_chat_thread(message_data: Dict[str, Any]):
+async def notify_chat_thread(message_data: Dict[str, Any], did: str):
     """
     通知聊天线程有新消息
     
@@ -108,9 +134,9 @@ async def notify_chat_thread(message_data: Dict[str, Any]):
     logging.info(f"ANP-NLP响应: {message_data['assistant_message']}")
     
     # 打印到控制台，确保在聊天线程中可见
-    import os
-    port = os.environ.get("PORT", "9527")
-    print(f"\n[ANP-NLP] 对方: {message_data['user_message']}")
+
+    port= os.environ.get("PORT")
+    print(f"\n[ANP-NLP] 对方@{did}: {message_data['user_message']}")
     print(f"[ANP-NLP] 我方@{port}: {message_data['assistant_message']}\n")
     
     # 重置事件，为下一次通知做准备
