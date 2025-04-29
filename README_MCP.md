@@ -17,6 +17,8 @@
 
 ### 安装依赖
 
+请确保您使用的是 Python 3.10 或更高版本，然后运行：
+
 ```bash
 python setup_mcp.py --install
 ```

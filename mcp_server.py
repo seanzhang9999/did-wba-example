@@ -234,22 +234,21 @@ async def get_connection_events(ctx: Context, wait_for_new: bool = False) -> Dic
     }
 
 @mcp.resource("status://did-wba")
-def get_status(ctx: Context) -> Dict[str, Any]:
+async def get_status() -> Dict[str, Any]:
     """Get the current status of the DID WBA server and client.
     
     Returns:
         Dict with status information
     """
-    app_context = ctx.request_context.lifespan_context
     
     return {
         "server": {
             "running": server_running,
-            "status": app_context.server_status
+            "status": {"running": server_running}
         },
         "client": {
             "running": client_running,
-            "status": app_context.client_status
+            "status": {"running": client_running}
         },
         "connection_events_count": len(connection_events)
     }
@@ -258,11 +257,22 @@ def run_mcp_server():
     """Run the MCP server."""
     # Install the MCP server for development
     import sys
-    from mcp.cli.dev import dev_command
     
-    # Run the MCP server in development mode
-    sys.argv = ["mcp", "dev", __file__]
-    dev_command()
+    try:
+        # 尝试导入MCP CLI开发模块
+        from mcp.cli.dev import dev_command
+        
+        # 运行MCP服务器（开发模式）
+        sys.argv = ["mcp", "dev", __file__]
+        dev_command()
+    except ImportError:
+        print("错误: 找不到 'mcp.cli.dev' 模块")
+        print("请运行以下命令安装必要的依赖:")
+        print("python setup_mcp.py --install")
+        print("\n或者尝试直接运行:")
+        print(f"{sys.executable} -m pip install --upgrade mcp[cli] mcp-cli")
+        print("\n安装完成后，再次运行此脚本")
+        sys.exit(1)
 
 if __name__ == "__main__":
     run_mcp_server()

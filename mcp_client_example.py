@@ -5,19 +5,25 @@ and invoke the DID WBA tools.
 """
 import asyncio
 import json
-from mcp.client.client import Client as MCPClient
+from mcp import ClientSession, types
+from mcp.client.stdio import stdio_client, StdioServerParameters
 
 async def main():
     """Run the MCP client example."""
     print("连接到 MCP 服务器...")
+
+    
     
     # 连接到 MCP 服务器
     # 使用 stdio 传输连接到本地 MCP 服务器脚本
-    async with MCPClient.connect("stdio://mcp_server.py") as client:
+    # 创建正确的StdioServerParameters对象而不是使用字符串
+    server_params = StdioServerParameters(command="python", args=["mcp_server.py"])
+    async with stdio_client(server_params) as (read_stream, write_stream):
+        # 使用流创建ClientSession
+        client = ClientSession(read_stream, write_stream)
         print("已连接到 MCP 服务器")
-        
         # 获取当前状态
-        status = await client.get_resource("status://did-wba")
+        status = await client.read_resource("status://did-wba")
         print(f"当前状态:\n{json.dumps(status, indent=2, ensure_ascii=False)}")
         
         # 启动服务器

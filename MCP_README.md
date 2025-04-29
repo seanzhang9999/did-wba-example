@@ -12,7 +12,7 @@ Model Context Protocol (MCP) 允许应用程序以标准化的方式为大语言
 
 ## 安装依赖
 
-首先，确保已安装 MCP Python SDK：
+首先，确保您使用的是 Python 3.10 或更高版本，然后安装 MCP Python SDK：
 
 ```bash
 pip install "mcp[cli]"

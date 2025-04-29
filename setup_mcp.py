@@ -10,18 +10,31 @@ import argparse
 
 def check_python_version():
     """Check if Python version is compatible."""
-    if sys.version_info < (3, 8):
-        print("错误: 需要 Python 3.8 或更高版本")
+    if sys.version_info < (3, 10):
+        print("错误: 需要 Python 3.10 或更高版本")
         sys.exit(1)
 
 def install_dependencies():
     """Install required dependencies."""
     print("安装 MCP 依赖...")
     try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "mcp[cli]"])
-        print("MCP 依赖安装成功")
+        # 确保安装完整的MCP包，包括CLI组件
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "mcp[cli]"])
+        # 验证安装
+        try:
+            import mcp.cli.dev
+            print("MCP 依赖安装成功")
+        except ImportError:
+            print("警告: MCP CLI 组件未正确安装，尝试直接安装dev模块...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "mcp-cli"])
+            print("MCP CLI 组件安装完成")
     except subprocess.CalledProcessError as e:
         print(f"安装 MCP 依赖时出错: {e}")
+        sys.exit(1)
+    except ImportError as e:
+        print(f"导入 MCP 模块时出错: {e}")
+        print("请尝试手动安装: pip install --upgrade mcp[cli] mcp-cli")
         sys.exit(1)
 
 def install_mcp_server():
