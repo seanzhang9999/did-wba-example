@@ -96,7 +96,8 @@ async def get_agent_description() -> Dict:
         "endpoints": {
             "auth": "/auth/did-wba",
             "verify": "/auth/verify",
-            "test": "/wba/test"
+            "test": "/wba/test",
+            "nlp": "/wba/anp-nlp"
         },
         "owner": "DID WBA Example",
         "created_at": "2025-04-21T00:00:00Z"

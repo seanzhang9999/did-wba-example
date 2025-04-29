@@ -1,5 +1,7 @@
 # DID WBA 客户端与服务器示例
 
+[English Version](README_EN.md)
+
 这是一个使用FastAPI和Agent_Connect库实现的DID WBA方法示例，同时支持客户端和服务器功能。
 
 ## 功能特点
