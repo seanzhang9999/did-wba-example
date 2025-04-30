@@ -58,15 +58,14 @@ async def main():
     print("连接到 MCP 服务器...")
     logger.debug("开始连接MCP服务器")
     
+
+    
     # 创建stderr捕获器
     stderr_capture = StderrCapture()
-    
-       
-        # 设置超时
-        timeout = 30  # 30秒超时
-        
-        # 使用stdio连接到MCP服务器
-        server_params = StdioServerParameters(
+    # 设置超时
+    timeout = 30  
+    # 30秒超时
+    server_params = StdioServerParameters(
             command="uv", 
             args=["run", "--with", "mcp", "mcp", "run", "mcp_server.py"],
             # 添加环境变量，确保输出不被缓冲并设置PATH
@@ -75,10 +74,13 @@ async def main():
             #    "PATH": "/Users/seanzhang/.npm/_npx/5a9d879542beca3a/node_modules/.bin:/Users/seanzhang/seanwork/did-wba-example/node_modules/.bin:/Users/seanzhang/seanwork/node_modules/.bin:/Users/seanzhang/node_modules/.bin:/Users/node_modules/.bin:/node_modules/.bin:/usr/local/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/Users/seanzhang/seanwork/did-wba-example/.venv/bin:/Users/seanzhang/.trae/extensions/ms-python.python-2025.4.0-universal/python_files/deactivate/zsh:/Users/seanzhang/seanwork/did-wba-example/.venv/bin:/Users/seanzhang/.codeium/windsurf/bin:/Users/seanzhang/.bun/bin:/opt/anaconda3/bin:/usr/local/sbin:/usr/local/bin:/Library/Java/JavaVirtualMachines/jdk1.8.0_202.jdk/Contents/Home/bin:/Users/seanzhang/.trae/extensions/ms-python.python-2025.4.0-universal/python_files/deactivate/zsh:/Users/seanzhang/seanwork/did-wba-example/.venv/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/Applications/VMware Fusion.app/Contents/Public:/usr/local/bin/pandoc:/Applications/Trae.app/Contents/Resources/app/bin:/Users/seanzhang/.trae/extensions/ms-python.python-2025.4.0-universal/python_files/deactivate/zsh:/Users/seanzhang/seanwork/did-wba-example/.venv/bin:/Users/seanzhang/.codeium/windsurf/bin:/Users/seanzhang/.bun/bin:/opt/anaconda3/bin:/usr/local/sbin:/Users/seanzhang/miniconda3/bin:/Users/seanzhang/miniconda3/condabin:/Library/Java/JavaVirtualMachines/jdk1.8.0_202.jdk/Contents/Home/bin:/Users/seanzhang/.local/bin:/Users/seanzhang/.local/bin:/Users/seanzhang/.local/bin"
             }
         )
-        logger.debug(f"连接到MCP服务器(stdio): {server_params}")
+    logger.debug(f"连接到MCP服务器(stdio): {server_params}")
+    
         
         # 使用自定义的stderr捕获器
-        async with stdio_client(server_params, errlog=stderr_capture) as (read_stream, write_stream):
+    async with stdio_client(server_params, errlog=stderr_capture) as (read_stream, write_stream):
+    
+        try:
             # 创建客户端会话
             async with ClientSession(read_stream, write_stream) as client:
                 print("已连接到 MCP 服务器")
@@ -89,14 +91,18 @@ async def main():
                     await client.initialize()
                     logger.debug("初始化")
                     # 测试获取可用工具列表
-                    # tools = await client.list_tools()
-                    # print("可用工具列表:", tools)
+                    tools = await client.list_tools()
+                    print("可用工具列表:", tools)
                     
                     # 然后读取资源状态
-                    # logger.debug("读取资源")
-                    # status_task = asyncio.create_task(client.read_resource("status://did-wba"))
-                    # status = await asyncio.wait_for(status_task, timeout=timeout)
-                    # print(f"当前状态:\n{json.dumps(status, indent=2, ensure_ascii=False)}")
+                    """
+                    logger.debug("读取资源")
+                    status = await asyncio.wait_for(
+                        client.read_resource("status://did-wba"),
+                        timeout=timeout
+                    )
+                    print(f"当前状态:\n{json.dumps(status, indent=2, ensure_ascii=False)}")
+                    """
                 except asyncio.TimeoutError:
                     logger.error(f"读取资源状态超时 (超过{timeout}秒)")
                     print(f"错误: 读取资源状态超时，服务器可能未正确启动")
@@ -175,7 +181,7 @@ async def main():
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
                     return
-                """
+                
                 # 等待并获取连接事件
                 print("\n等待连接事件...")
                 print("(最多等待 30 秒，如果没有新事件将超时)")
@@ -206,7 +212,7 @@ async def main():
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
                     return
-                """
+                
             
                 # 停止客户端
                 print("\n停止 DID WBA 客户端...")
@@ -287,21 +293,21 @@ async def main():
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
                 """
-    
-    except Exception as e:
-        logger.error(f"执行过程中出错: {e}", exc_info=True)
-        print(f"错误: {e}")
-        print(f"错误详情: {traceback.format_exc()}")
-        # 输出捕获的stderr内容
-        stderr_content = stderr_capture.get_content()
-        if stderr_content:
-            logger.error(f"服务器stderr输出:\n{stderr_content}")
-            print(f"\n服务器错误输出:\n{stderr_content}")
-    
-    finally:
+
+        except Exception as e:
+            logger.error(f"执行过程中出错: {e}", exc_info=True)
+            print(f"错误: {e}")
+            print(f"错误详情: {traceback.format_exc()}")
+            # 输出捕获的stderr内容
+            stderr_content = stderr_capture.get_content()
+            if stderr_content:
+                logger.error(f"服务器stderr输出:\n{stderr_content}")
+                print(f"\n服务器错误输出:\n{stderr_content}")
+
+        finally:
         # 确保关闭临时文件
-        if 'stderr_capture' in locals():
-            stderr_capture.close()
+            if 'stderr_capture' in locals():
+                stderr_capture.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
