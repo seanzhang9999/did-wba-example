@@ -314,18 +314,21 @@ def run_mcp_server():
             print("如需启用调试，请运行: pip install debugpy")
     
     try:
-        # 尝试导入MCP CLI开发模块
-        from mcp.cli.dev import dev_command
+        # 尝试直接启动MCP服务器，而不是使用MCP CLI
+        print("正在直接启动MCP服务器...")
+        # 设置HTTP服务器端口
+        port = int(os.environ.get("MCP_PORT", "6274"))
         
-        # 运行MCP服务器（开发模式）
-        sys.argv = ["mcp", "dev", __file__]
-        dev_command()
-    except ImportError:
-        print("错误: 找不到 'mcp.cli.dev' 模块")
+        # 导入必要的模块
+        from mcp.server.fastmcp import run_app
+        
+        # 直接运行FastMCP应用
+        run_app(mcp, host="0.0.0.0", port=port)
+        
+    except ImportError as e:
+        print(f"错误: 导入MCP模块失败: {e}")
         print("请运行以下命令安装必要的依赖:")
-        print("python setup_mcp.py --install")
-        print("\n或者尝试直接运行:")
-        print(f"{sys.executable} -m pip install --upgrade mcp[cli] mcp-cli")
+        print("python -m pip install --upgrade mcp")
         print("\n安装完成后，再次运行此脚本")
         sys.exit(1)
 
