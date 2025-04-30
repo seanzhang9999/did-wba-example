@@ -178,7 +178,7 @@ async def main():
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
                     return
-                
+                """
                 # 等待并获取连接事件
                 print("\n等待连接事件...")
                 print("(最多等待 30 秒，如果没有新事件将超时)")
@@ -209,6 +209,7 @@ async def main():
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
                     return
+                """
             
                 # 停止客户端
                 print("\n停止 DID WBA 客户端...")
@@ -263,7 +264,8 @@ async def main():
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
                     return
-            
+
+                """
                 # 再次获取状态
                 try:
                     status = await asyncio.wait_for(
@@ -287,6 +289,7 @@ async def main():
                     if stderr_content:
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
+                """
     
     except Exception as e:
         logger.error(f"执行过程中出错: {e}", exc_info=True)
