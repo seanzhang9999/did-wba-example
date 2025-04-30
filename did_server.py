@@ -61,14 +61,16 @@ async def client_example(unique_id: str = None, silent: bool = False, from_chat:
         from_chat: Whether the call is from chat thread
     """
     if msg is None:
-        msg = "ANPbot的问候，请五个字内回复我"
+        msg = "ANP客户端的问候，请回复我今天北京的"
     try:
         # 1. Generate or load DID document
         if not unique_id:
             unique_id = secrets.token_hex(8)
-            
+       
         logging.info(f"Using unique ID: {unique_id}")
+
         did_document, keys, user_dir = await generate_or_load_did(unique_id)
+        os.environ['did-id'] = did_document.get('id')
         did_document_path = Path(user_dir) / settings.DID_DOCUMENT_FILENAME
         private_key_path = Path(user_dir) / settings.PRIVATE_KEY_FILENAME
         
@@ -126,7 +128,7 @@ async def client_example(unique_id: str = None, silent: bool = False, from_chat:
                                 "status": "success"
                             })
                         elif not silent:
-                            print(f"\nanp消息\"{default_message}\"成功发送，服务器回复: {chat_response.get('answer', '[无回复]')}")
+                            print(f"\nanp消息\"{msg}\"成功发送，服务器回复: {chat_response.get('answer', '[无回复]')}")
                     else:
                         logging.error(f"消息发送失败! 状态: {chat_status}")
                         logging.error(f"响应: {chat_response}")
@@ -417,7 +419,7 @@ async def run_chat():
                 if user_msg.strip().startswith("@anp-bot"):
                     # 支持 @anp-bot 后跟一句自定义消息
                     parts = user_msg.strip().split(" ", 1)
-                    custom_msg = "ANPbot的问候，请五个字内回复我"
+                    custom_msg = "ANPbot的问候，请二十字内回复我"
                     if len(parts) > 1 and parts[1].strip():
                         custom_msg = parts[1].strip()
                     print(f"检测到特殊命令 @anp-bot，正在启动客户端...\n将发送消息: {custom_msg}")

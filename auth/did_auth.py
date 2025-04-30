@@ -337,10 +337,12 @@ async def send_request_with_token(target_url: str, token: str, method: str = "GE
         Tuple[int, Dict[str, Any]]: 状态码和响应
     """
     try:
+        did = os.environ.get("did-id")
         headers = {
-            "Authorization": f"Bearer {token}"
+            "Authorization": f"Bearer {token}",
+            "DID": f"{did}"
         }
-        
+
         async with aiohttp.ClientSession() as session:
             if method.upper() == "GET":
                 async with session.get(

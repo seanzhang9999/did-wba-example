@@ -1,3 +1,13 @@
+[project]
+name = "did-wba-example"
+version = "0.1.0"
+description = "A short description of your project"
+authors = [{ name = "Your Name", email = "your.email@example.com" }]
+dependencies = [
+    "mcp[cli]>=1.6.0",
+]
+requires-python = ">=3.10"
+
 [tool.poetry]
 name = "did-wba-server"
 version = "0.1.0"
@@ -11,7 +21,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.10,<4.0"
 fastapi = "^0.103.0"
 uvicorn = "^0.32.0"
 python-dotenv = "^1.0.0"
@@ -27,6 +37,9 @@ httpx = "^0.28.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
+
+[tool.uv.workspace]
+members = ["mcp_client_example"]
 
 [build-system]
 requires = ["poetry-core"]
