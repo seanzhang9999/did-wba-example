@@ -40,7 +40,8 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": false,
-            "args": "${command:pickArgs}"
+            "args": "${command:pickArgs}",
+            "preLaunchTask": "activate-venv"
         },
         {
             "name": "Python Debugger: Current File with Arguments",
@@ -48,7 +49,8 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": "${command:pickArgs}"
+            "args": "${command:pickArgs}",
+            "preLaunchTask": "activate-venv-and-run-mcp"
         },
         {
             "name": "Attach to MCP Client",
@@ -59,6 +61,24 @@
                 "port": 5679
             },
             "justMyCode": false
+        },
+        {
+            "name": "Python: MCP SSE 服务器",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/mcp_sse_server.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "preLaunchTask": "activate-venv"
+        },
+        {
+            "name": "Python: MCP SSE 客户端",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/mcp_sse_client.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "preLaunchTask": "activate-venv"
         }
     ]
 }
