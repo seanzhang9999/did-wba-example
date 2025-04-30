@@ -64,9 +64,18 @@ async def main():
     stderr_capture = StderrCapture()
     # 设置超时
     timeout = 30  
+    import platform
+    
+    # 根据操作系统选择合适的激活命令
+    activate_cmd = ""
+    if platform.system() == "Windows":
+        activate_cmd = ".venv\\Scripts\\activate.bat && "
+    else:  # Linux 或 macOS
+        activate_cmd = "source .venv/bin/activate && "
+    
     # 30秒超时
     server_params = StdioServerParameters(
-            command="uv", 
+            command=f"{activate_cmd}uv", 
             args=["run", "--with", "mcp", "mcp", "run", "mcp_server.py"],
             # 添加环境变量，确保输出不被缓冲并设置PATH
             env={
