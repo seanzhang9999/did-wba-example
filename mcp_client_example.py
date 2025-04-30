@@ -17,7 +17,11 @@ async def main():
     # 连接到 MCP 服务器
     # 使用 stdio 传输连接到本地 MCP 服务器脚本
     # 创建正确的StdioServerParameters对象而不是使用字符串
-    server_params = StdioServerParameters(command="python", args=["mcp_server.py"])
+    server_params = StdioServerParameters(
+        command="python",
+        args=["-X", "utf8", "mcp_server.py"],
+        encoding="utf-8"
+    )
     async with stdio_client(server_params) as (read_stream, write_stream):
         # 使用流创建ClientSession
         client = ClientSession(read_stream, write_stream)
