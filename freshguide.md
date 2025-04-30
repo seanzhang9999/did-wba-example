@@ -30,13 +30,18 @@ poetry env use "C:\YouPath\To\Python310\python.exe"
 #### Windows
 
 * **安装**
-  powershell复制
+  将以下指令复制并运行在powershell
 
   ```powershell
   (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | py -
   ```
+  > 注：如果系统识别不了该指令，可以把指令中的py替换成python
+  ```powershell
+    (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
+  ```
+
 * **配置环境变量**
-  powershell复制
+  将以下指令复制并运行在powershell
 
   ```powershell
   # 将 Poetry 的 bin 目录添加到用户环境变量 PATH 中
@@ -44,10 +49,10 @@ poetry env use "C:\YouPath\To\Python310\python.exe"
   # 刷新当前会话的 PATH 环境变量
   $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
   ```
-
   重启 PowerShell 或命令提示符以确保环境变量生效。
+
 * **验证安装**
-  powershell复制
+  将以下指令复制并运行在powershell
 
   ```powershell
   poetry --version
@@ -84,7 +89,7 @@ poetry env use "C:\YouPath\To\Python310\python.exe"
   如果输出了 Poetry 的版本号，则表示安装成功。
 
 
-# Windows
+# Windows 开发
 #### **配置 Poetry 使用项目目录**
 
 ```powershell
@@ -146,7 +151,7 @@ poetry env remove --all
    ```
 
 
-# Mac
+# Mac 开发
 
 本项目要求 python 版本在 3.10 以上。
 
