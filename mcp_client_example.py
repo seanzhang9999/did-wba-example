@@ -86,6 +86,16 @@ async def main():
                 print("已连接到 MCP 服务器")
                 logger.debug("成功创建ClientSession")
             
+                # 将CustomJSONEncoder类移到函数开头，使其可以被所有序列化操作使用
+                # 创建自定义JSON编码器来处理不可序列化的对象
+                class CustomJSONEncoder(json.JSONEncoder):
+                    def default(self, obj):
+                        # 尝试获取对象的__dict__属性
+                        if hasattr(obj, '__dict__'):
+                            return obj.__dict__
+                        # 其他情况转为字符串
+                        return str(obj)
+                
                 # 获取当前状态 - 添加超时处理
                 try:
                     await client.initialize()
@@ -95,14 +105,24 @@ async def main():
                     print("可用工具列表:", tools)
                     
                     # 然后读取资源状态
-                    """
+                    
                     logger.debug("读取资源")
                     status = await asyncio.wait_for(
                         client.read_resource("status://did-wba"),
                         timeout=timeout
                     )
-                    print(f"当前状态:\n{json.dumps(status, indent=2, ensure_ascii=False)}")
-                    """
+                    # 创建自定义JSON编码器来处理不可序列化的对象
+                    class CustomJSONEncoder(json.JSONEncoder):
+                        def default(self, obj):
+                            # 尝试获取对象的__dict__属性
+                            if hasattr(obj, '__dict__'):
+                                return obj.__dict__
+                            # 其他情况转为字符串
+                            return str(obj)
+                    
+                    # 使用自定义编码器序列化status对象
+                    print(f"当前状态:\n{json.dumps(status, cls=CustomJSONEncoder, indent=2, ensure_ascii=False)}")
+                    
                 except asyncio.TimeoutError:
                     logger.error(f"读取资源状态超时 (超过{timeout}秒)")
                     print(f"错误: 读取资源状态超时，服务器可能未正确启动")
@@ -111,7 +131,7 @@ async def main():
                     if stderr_content:
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
-                    return
+                    # return
                 except Exception as e:
                     logger.error(f"读取资源状态时出错: {e}")
                     print(f"错误: {e}")
@@ -129,7 +149,7 @@ async def main():
                         client.call_tool("start_did_server"), 
                         timeout=timeout
                     )
-                    print(f"服务器启动结果: {server_result}")
+                    print(f"服务器启动结果: {json.dumps(server_result, cls=CustomJSONEncoder, indent=2, ensure_ascii=False)}")
                 except asyncio.TimeoutError:
                     logger.error(f"启动服务器超时 (超过{timeout}秒)")
                     print(f"错误: 启动服务器超时")
@@ -138,7 +158,7 @@ async def main():
                     if stderr_content:
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
-                    return
+                    # return
                 except Exception as e:
                     logger.error(f"启动服务器时出错: {e}")
                     print(f"错误: {e}")
@@ -162,7 +182,7 @@ async def main():
                         ),
                         timeout=timeout
                     )
-                    print(f"客户端启动结果: {client_result}")
+                    print(f"客户端启动结果: {json.dumps(client_result, cls=CustomJSONEncoder, indent=2, ensure_ascii=False)}")
                 except asyncio.TimeoutError:
                     logger.error(f"启动客户端超时 (超过{timeout}秒)")
                     print(f"错误: 启动客户端超时")
@@ -171,7 +191,7 @@ async def main():
                     if stderr_content:
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
-                    return
+                    # return
                 except Exception as e:
                     logger.error(f"启动客户端时出错: {e}")
                     print(f"错误: {e}")
@@ -193,7 +213,7 @@ async def main():
                         ),
                         timeout=timeout
                     )
-                    print(f"连接事件:\n{json.dumps(events, indent=2, ensure_ascii=False)}")
+                    print(f"连接事件:\n{json.dumps(events, cls=CustomJSONEncoder, indent=2, ensure_ascii=False)}")
                 except asyncio.TimeoutError:
                     logger.error(f"获取连接事件超时 (超过{timeout}秒)")
                     print(f"错误: 获取连接事件超时")
@@ -202,7 +222,7 @@ async def main():
                     if stderr_content:
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
-                    return
+                    # return
                 except Exception as e:
                     logger.error(f"获取连接事件时出错: {e}")
                     print(f"错误: {e}")
@@ -221,7 +241,7 @@ async def main():
                         client.call_tool("stop_did_client"),
                         timeout=timeout
                     )
-                    print(f"客户端停止结果: {stop_client_result}")
+                    print(f"客户端停止结果: {json.dumps(stop_client_result, cls=CustomJSONEncoder, indent=2, ensure_ascii=False)}")
                 except asyncio.TimeoutError:
                     logger.error(f"停止客户端超时 (超过{timeout}秒)")
                     print(f"错误: 停止客户端超时")
@@ -230,7 +250,7 @@ async def main():
                     if stderr_content:
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
-                    return
+                    # return
                 except Exception as e:
                     logger.error(f"停止客户端时出错: {e}")
                     print(f"错误: {e}")
@@ -248,7 +268,7 @@ async def main():
                         client.call_tool("stop_did_server"),
                         timeout=timeout
                     )
-                    print(f"服务器停止结果: {stop_server_result}")
+                    print(f"服务器停止结果: {json.dumps(stop_server_result, cls=CustomJSONEncoder, indent=2, ensure_ascii=False)}")
                 except asyncio.TimeoutError:
                     logger.error(f"停止服务器超时 (超过{timeout}秒)")
                     print(f"错误: 停止服务器超时")
@@ -257,7 +277,7 @@ async def main():
                     if stderr_content:
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
-                    return
+                    # return
                 except Exception as e:
                     logger.error(f"停止服务器时出错: {e}")
                     print(f"错误: {e}")
@@ -268,14 +288,14 @@ async def main():
                         print(f"\n服务器错误输出:\n{stderr_content}")
                     return
 
-                """
+                
                 # 再次获取状态
                 try:
                     status = await asyncio.wait_for(
                         client.read_resource("status://did-wba"),
                         timeout=timeout
                     )
-                    print(f"\n最终状态:\n{json.dumps(status, indent=2, ensure_ascii=False)}")
+                    print(f"\n最终状态:\n{json.dumps(status, cls=CustomJSONEncoder, indent=2, ensure_ascii=False)}")
                 except asyncio.TimeoutError:
                     logger.error(f"获取最终状态超时 (超过{timeout}秒)")
                     print(f"错误: 获取最终状态超时")
@@ -292,7 +312,7 @@ async def main():
                     if stderr_content:
                         logger.error(f"服务器stderr输出:\n{stderr_content}")
                         print(f"\n服务器错误输出:\n{stderr_content}")
-                """
+                
 
         except Exception as e:
             logger.error(f"执行过程中出错: {e}", exc_info=True)
