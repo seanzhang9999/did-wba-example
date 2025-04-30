@@ -15,6 +15,8 @@ import httpx
 from pathlib import Path
 from typing import Dict, Any
 
+from loguru import logger
+
 from core.config import settings
 from core.app import create_app
 from auth.did_auth import (
@@ -30,6 +32,7 @@ client_chat_messages = []
 # 事件，用于通知聊天线程有新消息
 client_new_message_event = asyncio.Event()
 
+logger.add("logs/did_server.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
 
 # Create FastAPI application
 app = create_app()
@@ -295,31 +298,33 @@ def start_server(port=None):
     """
     global server_thread, server_running
     if server_thread and server_thread.is_alive():
-        print("服务器已经在运行中")
-        return
+        logger.info("服务器已经在运行中")
+        return True  # 返回运行状态
     
     # 如果提供了端口号，则临时修改设置中的端口
     if port is not None:
         try:
             port_num = int(port)
             settings.PORT = port_num
-            print(f"使用自定义端口: {port_num}")
+            logger.info(f"Use a custom port: {port_num}")
         except ValueError:
-            print(f"无效的端口号: {port}，使用默认端口: {settings.PORT}")
+            logger.error(f"Error prot : {port}，use default port: {settings.PORT}")
     
     server_thread = threading.Thread(target=run_server, daemon=True)
     server_thread.start()
-    print(f"服务器已在 http://{settings.HOST}:{settings.PORT} 启动")
+    logger.info(f"DID WBA server started on http://{settings.HOST}:{settings.PORT}")
+    server_running = True
+    return True  # 明确返回成功状态
 
 
 def stop_server():
     """停止服务器线程"""
     global server_thread, server_running, server_instance
     if not server_thread or not server_thread.is_alive():
-        print("服务器未运行")
+        logger.info("服务器未运行")
         return
     
-    print("正在关闭服务器...")
+    logger.info("正在关闭服务器...")
     # 由于uvicorn没有优雅的关闭方法，我们需要设置server_instance的should_exit属性
     server_running = False
     
@@ -330,9 +335,9 @@ def stop_server():
     # 等待服务器线程结束
     server_thread.join(timeout=5)
     if server_thread.is_alive():
-        print("服务器关闭超时，可能需要重启程序")
+        logger.info("服务器关闭超时，可能需要重启程序")
     else:
-        print("服务器已关闭")
+        logger.info("服务器已关闭")
         server_thread = None
         server_instance = None
 
@@ -348,7 +353,7 @@ def start_client(port=None, unique_id_arg=None, silent=False, from_chat=False , 
     """
     global client_thread, client_running, unique_id
     if client_thread and client_thread.is_alive():
-        print("客户端已经在运行中")
+        logger.info("[start_did_client] Client already running")
         return
     
     if unique_id_arg:
@@ -357,25 +362,25 @@ def start_client(port=None, unique_id_arg=None, silent=False, from_chat=False , 
     client_thread = threading.Thread(target=run_client, args=(port, unique_id, silent, from_chat, msg), daemon=True)
     client_thread.start()
     if not silent:
-        print("客户端已启动")
+        logger.info("[start_did_client] Client started")
         if port:
-            print(f"使用目标服务器端口: {port}")
+            logger.info(f"[start_did_client] Client target server port: {port}")
 
 
 def stop_client():
     """停止客户端线程"""
     global client_thread, client_running
     if not client_thread or not client_thread.is_alive():
-        print("客户端未运行")
+        logger.info("客户端未运行")
         return
     
-    print("正在关闭客户端...")
+    logger.info("正在关闭客户端...")
     client_running = False
     client_thread.join(timeout=5)
     if client_thread.is_alive():
-        print("客户端关闭超时，可能需要重启程序")
+        logger.info("客户端关闭超时，可能需要重启程序")
     else:
-        print("客户端已关闭")
+        logger.info("客户端已关闭")
         client_thread = None
 
 
