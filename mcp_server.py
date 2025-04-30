@@ -25,6 +25,9 @@ from did_server import (
     client_new_message_event
 )
 
+# Import server-side message handling
+from api.anp_nlp_router import chat_messages, new_message_event as server_new_message_event
+
 # Create a named MCP server
 mcp = FastMCP("DID WBA MCP Server")
 
@@ -65,38 +68,74 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
 mcp = FastMCP("DID WBA MCP Server", lifespan=app_lifespan)
 
 async def connection_event_listener(app_context: AppContext):
-    """Listen for connection events from the DID WBA server."""
+    """Listen for connection events from both DID WBA client and server."""
     global client_chat_messages, client_new_message_event, connection_events, new_connection_event
+    global chat_messages, server_new_message_event
     
+    # 创建两个任务，分别监听客户端和服务器端的消息
     while True:
         try:
-            # Wait for new message event from client
-            await client_new_message_event.wait()
+            # 创建两个等待事件的任务
+            client_task = asyncio.create_task(client_new_message_event.wait())
+            server_task = asyncio.create_task(server_new_message_event.wait())
             
-            # If there are new messages, add them to connection events
-            if client_chat_messages and client_new_message_event.is_set():
-                # Get the latest message
-                latest_message = client_chat_messages[-1]
-                
-                # Add to connection events
-                connection_events.append(latest_message)
-                if len(connection_events) > 50:
-                    connection_events = connection_events[-50:]
-                
-                # Update app context
-                app_context.connection_events = connection_events
-                
-                # Set event to notify subscribers
-                new_connection_event.set()
-                
-                # Reset client event
-                client_new_message_event.clear()
-                
-            # Small delay to prevent CPU hogging
+            # 等待任意一个任务完成
+            done, pending = await asyncio.wait(
+                [client_task, server_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            # 取消未完成的任务
+            for task in pending:
+                task.cancel()
+            
+            # 处理客户端消息
+            if client_task in done and client_new_message_event.is_set():
+                if client_chat_messages:
+                    # 获取最新消息
+                    latest_message = client_chat_messages[-1]
+                    latest_message['source'] = 'client'  # 添加来源标记
+                    
+                    # 添加到连接事件
+                    connection_events.append(latest_message)
+                    if len(connection_events) > 50:
+                        connection_events = connection_events[-50:]
+                    
+                    # 更新应用上下文
+                    app_context.connection_events = connection_events
+                    
+                    # 设置事件通知订阅者
+                    new_connection_event.set()
+                    
+                    # 重置客户端事件
+                    client_new_message_event.clear()
+            
+            # 处理服务器端消息
+            if server_task in done and server_new_message_event.is_set():
+                if chat_messages:
+                    # 获取最新消息
+                    latest_message = chat_messages[-1]
+                    latest_message['source'] = 'server'  # 添加来源标记
+                    
+                    # 添加到连接事件
+                    connection_events.append(latest_message)
+                    if len(connection_events) > 50:
+                        connection_events = connection_events[-50:]
+                    
+                    # 更新应用上下文
+                    app_context.connection_events = connection_events
+                    
+                    # 设置事件通知订阅者
+                    new_connection_event.set()
+                    
+                    # 重置服务器端事件
+                    server_new_message_event.clear()
+            
+            # 小延迟防止CPU过载
             await asyncio.sleep(0.1)
         except Exception as e:
             logging.error(f"Error in connection event listener: {e}")
-            await asyncio.sleep(1)  # Wait before retrying
+            await asyncio.sleep(1)  # 出错后等待一段时间再重试
 
 @mcp.tool()
 def start_did_server(ctx: Context, port: Optional[int] = None) -> Dict[str, Any]:
@@ -221,7 +260,7 @@ async def get_connection_events(ctx: Context, wait_for_new: bool = False) -> Dic
     if wait_for_new:
         # Wait for new connection event with timeout
         try:
-            await asyncio.wait_for(new_connection_event.wait(), timeout=30)
+            await asyncio.wait_for(new_connection_event.wait(), timeout=300)
             # Reset event for next notification
             new_connection_event.clear()
         except asyncio.TimeoutError:
@@ -230,6 +269,7 @@ async def get_connection_events(ctx: Context, wait_for_new: bool = False) -> Dic
     return {
         "status": "success",
         "message": "获取连接事件成功",
+        "events number": f"{len(connection_events)}",
         "events": connection_events
     }
 
@@ -257,6 +297,21 @@ def run_mcp_server():
     """Run the MCP server."""
     # Install the MCP server for development
     import sys
+    
+    # 检查是否需要启用调试
+    enable_debug = os.environ.get("ENABLE_DEBUGPY", "False").lower() == "true"
+    
+    if enable_debug:
+        try:
+            import debugpy
+            # 允许其他客户端连接到调试器
+            debugpy.listen(("0.0.0.0", 5678))
+            print("调试器已启动，监听端口5678。您可以在VSCode中使用'Attach to Running MCP Server'配置连接到此进程。")
+            # 如果需要等待调试器连接，取消下面这行的注释
+            # debugpy.wait_for_client()
+        except ImportError:
+            print("警告: 无法导入debugpy模块，调试功能将被禁用")
+            print("如需启用调试，请运行: pip install debugpy")
     
     try:
         # 尝试导入MCP CLI开发模块

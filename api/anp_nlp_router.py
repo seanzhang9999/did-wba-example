@@ -139,5 +139,5 @@ async def notify_chat_thread(message_data: Dict[str, Any], did: str):
     print(f"\n[ANP-NLP] 对方@{did}: {message_data['user_message']}")
     print(f"[ANP-NLP] 我方@{port}: {message_data['assistant_message']}\n")
     
-    # 重置事件，为下一次通知做准备
-    new_message_event.clear()
+    # 注释掉重置事件的代码，让mcp_server.py中的监听器来清除事件
+    # new_message_event.clear()
