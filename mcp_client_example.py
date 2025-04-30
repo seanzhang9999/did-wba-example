@@ -61,10 +61,7 @@ async def main():
     # 创建stderr捕获器
     stderr_capture = StderrCapture()
     
-    try:
-        # 设置环境变量
-        os.environ["ENABLE_DEBUGPY"] = "True"
-        
+       
         # 设置超时
         timeout = 30  # 30秒超时
         
