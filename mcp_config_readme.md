@@ -1,3 +1,10 @@
+# MCP Inspector 配置指南
+
+## SSE模式不要使用Localhost
+  URL 使用 http://127.0.0.1:8080/sse 强制指定为ipv4地址
+  不要使用localhost，会导致默认使用ipv6地址，sse连接失败
+ 
+
 # Trae MCP 配置指南
 ## 启动 SSE MCP Server
 1. 运行 mcp_sse_server.py
