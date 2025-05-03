@@ -27,12 +27,20 @@ from auth.did_auth import (
 )
 from utils.log_base import set_log_color_level
 
+# 导入服务器和客户端功能
+from did_core.server.server import start_server as core_start_server, stop_server as core_stop_server, server_status as core_server_status
+from did_core.client.client import start_client as core_start_client, stop_client as core_stop_client, client_running as core_client_running, client_chat_messages as core_client_chat_messages, client_new_message_event as core_client_new_message_event
+
+# 从API模块导入服务器端消息处理
+from api.anp_nlp_router import chat_messages, new_message_event as server_new_message_event
+
 # 全局变量，用于存储最新的聊天消息
 client_chat_messages = []
 # 事件，用于通知聊天线程有新消息
 client_new_message_event = asyncio.Event()
 
-logger.add("logs/did_server.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
+# 设置日志
+logger.add("logs/anp_llm.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
 
 # Create FastAPI application
 app = create_app()
@@ -190,7 +198,7 @@ def run_server():
     global server_running, server_instance
     try:
         config = uvicorn.Config(
-            "did_server:app",
+            app,  # 直接使用已创建的FastAPI应用实例
             host=settings.HOST,
             port=settings.PORT,
             reload=settings.DEBUG,
@@ -202,11 +210,13 @@ def run_server():
         # 这一行很关键：关闭uvicorn自带的信号处理
         server_instance.install_signal_handlers = lambda: None
         server_running = True
+        core_server_status.set_running(True, port=settings.PORT)  # 同时设置core_server_status
         server_instance.run()
     except Exception as e:
         logging.error(f"服务器运行出错: {e}")
     finally:
         server_running = False
+        core_server_status.set_running(False)  # 同时设置core_server_status
 
 
 async def client_notify_chat_thread(message_data: Dict[str, Any]):
@@ -296,11 +306,6 @@ def start_server(port=None):
     Args:
         port: 可选的服务器端口号，如果提供则会覆盖默认端口
     """
-    global server_thread, server_running
-    if server_thread and server_thread.is_alive():
-        logger.info("服务器已经在运行中")
-        return True  # 返回运行状态
-    
     # 如果提供了端口号，则临时修改设置中的端口
     if port is not None:
         try:
@@ -310,39 +315,17 @@ def start_server(port=None):
         except ValueError:
             logger.error(f"Error prot : {port}，use default port: {settings.PORT}")
     
-    server_thread = threading.Thread(target=run_server, daemon=True)
-    server_thread.start()
-    logger.info(f"DID WBA server started on http://{settings.HOST}:{settings.PORT}")
-    server_running = True
-    return True  # 明确返回成功状态
+    # 调用did_core中的start_server函数
+    return core_start_server(port=port)
 
 
 def stop_server():
     """停止服务器线程"""
-    global server_thread, server_running, server_instance
-    if not server_thread or not server_thread.is_alive():
-        logger.info("服务器未运行")
-        return
-    
-    logger.info("正在关闭服务器...")
-    # 由于uvicorn没有优雅的关闭方法，我们需要设置server_instance的should_exit属性
-    server_running = False
-    
-    # 确保server_instance存在并设置should_exit属性
-    if server_instance: 
-        server_instance.should_exit = True
-    
-    # 等待服务器线程结束
-    server_thread.join(timeout=5)
-    if server_thread.is_alive():
-        logger.info("服务器关闭超时，可能需要重启程序")
-    else:
-        logger.info("服务器已关闭")
-        server_thread = None
-        server_instance = None
+    # 调用did_core中的stop_server函数
+    return core_stop_server()
 
 
-def start_client(port=None, unique_id_arg=None, silent=False, from_chat=False , msg = None):
+def start_client(port=None, unique_id_arg=None, silent=False, from_chat=False, msg=None):
     """启动客户端线程
     
     Args:
@@ -351,24 +334,19 @@ def start_client(port=None, unique_id_arg=None, silent=False, from_chat=False , 
         silent: 是否静默模式（不显示日志）
         from_chat: 是否从聊天线程调用
     """
-    global client_thread, client_running, unique_id
-    if client_thread and client_thread.is_alive():
-        logger.info("[start_did_client] Client already running")
-        return
+    global unique_id
     
     if unique_id_arg:
         unique_id = unique_id_arg
     
-    client_thread = threading.Thread(target=run_client, args=(port, unique_id, silent, from_chat, msg), daemon=True)
-    client_thread.start()
-    if not silent:
-        logger.info("[start_did_client] Client started")
-        if port:
-            logger.info(f"[start_did_client] Client target server port: {port}")
+    # 调用did_core中的start_client函数
+    return core_start_client(port=port, unique_id=unique_id_arg, message=msg)
 
 
 def stop_client():
     """停止客户端线程"""
+    # 调用did_core中的stop_client函数
+    return core_stop_client()
     global client_thread, client_running
     if not client_thread or not client_thread.is_alive():
         logger.info("客户端未运行")

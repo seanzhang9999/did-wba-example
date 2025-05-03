@@ -2,6 +2,24 @@
 
 这个文档介绍了如何使用 Model Context Protocol (MCP) 服务器来控制 DID WBA 客户端和服务器。
 
+## 安装和设置
+
+请参考 `setup_mcp.py` 脚本进行安装和设置。基本步骤如下：
+
+```bash
+# 安装依赖
+python setup/setup_mcp.py --install
+
+# 安装MCP服务器到Claude Desktop
+python setup/setup_mcp.py --install-claude
+
+# 运行MCP服务器
+python setup/setup_mcp.py --run
+
+# 或者直接运行
+python mcp_stdio_server.py
+```
+
 ## 什么是 MCP？
 
 Model Context Protocol (MCP) 允许应用程序以标准化的方式为大语言模型 (LLM) 提供上下文，将提供上下文的关注点与实际的 LLM 交互分开。MCP 服务器可以：

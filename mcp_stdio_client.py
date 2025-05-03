@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2025/4/30 20:12
-# mcp_sse_client.py
+# mcp_stdio_client.py
 import asyncio
 import json
 import os
@@ -9,7 +9,6 @@ from typing import List
 from fastapi import status
 from loguru import logger
 from mcp import ClientSession, StdioServerParameters
-from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.types import TextResourceContents, TextContent
 
@@ -41,16 +40,21 @@ def get_text_content_data(text_contents: List[TextContent]):
 
 
 async def main():
-    server_url = "http://localhost:8080/sse"
+    # 获取服务器脚本路径
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    server_path = os.path.join(current_dir, "mcp_stdio_server.py")
 
-    logger.info(f"1. Connecting to SSE server at {server_url}...")
+    # 创建服务器参数
+    server_params = StdioServerParameters(
+        command="python",
+        args=[server_path]
+    )
 
-    # 通过SSE建立连接
-    async with sse_client(url=server_url) as streams:
+    logger.info("1. 正在通过stdio建立与MCP服务器的连接...")
+    async with stdio_client(server_params) as streams:
         # 创建客户端会话
         async with ClientSession(*streams) as session:
-            # 初始化会话
-            logger.info("2. 初始化会话...")
+            logger.info("2. 会话已建立，正在初始化...")
             await session.initialize()
 
             # 列出可用工具
@@ -98,7 +102,7 @@ async def main():
                 try:
                     events = await session.call_tool(
                         "get_connection_events",
-                        {"wait_for_new": True, "timeout": 10}  # 增加超时时间到10秒
+                        {"wait_for_new": True, "timeout": 1}  # 缩短超时时间
                     )
                     events_data = get_text_content_data(events.content)
 

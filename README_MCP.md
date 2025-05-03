@@ -8,7 +8,8 @@
 
 ## 文件说明
 
-- `mcp_server.py`: MCP 服务器实现，封装了 DID WBA 服务器和客户端功能
+- `mcp_stdio_server.py`: MCP 服务器实现，封装了 DID WBA 服务器和客户端功能
+- `mcp_stdio_client.py`: MCP 客户端实现，用于通过stdio与MCP服务器通信
 - `mcp_client_example.py`: MCP 客户端示例，演示如何使用 MCP 客户端调用工具
 - `setup_mcp.py`: 安装和设置脚本，帮助安装依赖和设置环境
 - `MCP_README.md`: 详细的 MCP 服务器使用文档
@@ -38,13 +39,13 @@ python mcp_server.py
 ### 运行客户端示例
 
 ```bash
-python setup_mcp.py --example
+python setup/setup_mcp.py --example
 ```
 
 或者直接运行：
 
 ```bash
-python mcp_client_example.py
+python mcp_stdio_client.py
 ```
 
 ### 安装到 Claude Desktop

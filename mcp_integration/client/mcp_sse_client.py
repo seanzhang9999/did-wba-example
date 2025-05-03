@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2025/4/30 20:12
-# stdio_client.py
+# mcp_sse_client.py - SSE版本的MCP客户端
+
 import asyncio
 import json
 import os
@@ -9,13 +9,15 @@ from typing import List
 from fastapi import status
 from loguru import logger
 from mcp import ClientSession, StdioServerParameters
+from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.types import TextResourceContents, TextContent
 
-logger.add("logs/mcp_client.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
+logger.add("logs/mcp_sse_client.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
 
 
 def get_status_data(status_contents: List[TextContent]):
+    """解析状态数据"""
     assert len(status_contents) != 0, "状态返回数据为空"
     status_content = status_contents[0]
     status_data = {}
@@ -28,6 +30,7 @@ def get_status_data(status_contents: List[TextContent]):
 
 
 def get_text_content_data(text_contents: List[TextContent]):
+    """解析文本内容数据"""
     assert len(text_contents) == 1, "MCPserver返回数据为空"
     text_content = text_contents[0]
     content_data = {}
@@ -40,21 +43,17 @@ def get_text_content_data(text_contents: List[TextContent]):
 
 
 async def main():
-    # 获取服务器脚本路径
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    server_path = os.path.join(current_dir, "mcp_server.py")
+    """主函数，连接到SSE服务器并执行操作"""
+    server_url = "http://localhost:8080/sse"
 
-    # 创建服务器参数
-    server_params = StdioServerParameters(
-        command="python",
-        args=[server_path]
-    )
+    logger.info(f"1. Connecting to SSE server at {server_url}...")
 
-    logger.info("1. 正在通过stdio建立与MCP服务器的连接...")
-    async with stdio_client(server_params) as streams:
+    # 通过SSE建立连接
+    async with sse_client(url=server_url) as streams:
         # 创建客户端会话
         async with ClientSession(*streams) as session:
-            logger.info("2. 会话已建立，正在初始化...")
+            # 初始化会话
+            logger.info("2. 初始化会话...")
             await session.initialize()
 
             # 列出可用工具
@@ -97,37 +96,44 @@ async def main():
                 # return
 
             logger.info("11. 等待并获取连接事件...")
-            for i in range(3):  # 尝试获取3次事件
+            for i in range(5):  # 尝试获取5次事件
                 logger.info(f"12. 第{i + 1}次尝试获取事件...")
                 try:
                     events = await session.call_tool(
                         "get_connection_events",
-                        {"wait_for_new": True, "timeout": 1}  # 缩短超时时间
+                        {"wait_for_new": True, "timeout": 10}  # 增加超时时间到10秒
                     )
                     events_data = get_text_content_data(events.content)
+                    logger.info(f"13. 事件结果: {events_data}")
 
-                    logger.info(f"13. 获取到的事件: {events_data}")
-                    if events_data["events"]:
-                        logger.info(f"14. 最新消息内容: {events.content['events'][-1]}")
+                    if events_data["status"] == "success" and events_data["events"]:
+                        logger.info(f"14. 收到 {len(events_data['events'])} 个事件")
+                        for event in events_data["events"]:
+                            logger.info(f"15. 事件: {event}")
                         break
-
+                    else:
+                        logger.info("16. 未收到事件，继续等待...")
                 except Exception as e:
-                    logger.info(f"获取事件时出错: {e}")
-                    continue
+                    logger.error(f"17. 获取事件出错: {e}")
 
-            logger.info("15. 停止 DID WBA 客户端...")
-            stop_client = await session.call_tool("stop_did_client")
-            logger.info(f"16. 客户端停止结果: {get_text_content_data(stop_client.content)}")
+                await asyncio.sleep(3)  # 增加循环间隔等待时间
 
-            logger.info("17. 停止 DID WBA 服务器...")
-            stop_server = await session.call_tool("stop_did_server")
-            logger.info(f"18. 服务器停止结果: {get_text_content_data(stop_server.content)}")
+            # 清除事件
+            logger.info("18. 清除连接事件...")
+            clear_result = await session.call_tool("clear_connection_events")
+            logger.info(f"19. 清除结果: {get_text_content_data(clear_result.content)}")
 
-            logger.info("19. 最终状态检查...")
-            final_status = await session.read_resource("status://did-wba")
-            logger.info(f"20. 最终状态: {get_text_content_data(final_status.contents)}")
+            # 停止客户端
+            logger.info("20. 停止 DID WBA 客户端...")
+            stop_client_result = await session.call_tool("stop_did_client")
+            logger.info(f"21. 客户端停止结果: {get_text_content_data(stop_client_result.content)}")
 
-            logger.info("21. 全流程模拟完成!")
+            # 停止服务器
+            logger.info("22. 停止 DID WBA 服务器...")
+            stop_server_result = await session.call_tool("stop_did_server")
+            logger.info(f"23. 服务器停止结果: {get_text_content_data(stop_server_result.content)}")
+
+            logger.info("24. MCP SSE 客户端示例完成")
 
 
 if __name__ == "__main__":

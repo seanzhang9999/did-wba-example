@@ -9,6 +9,7 @@
 ## 启动 SSE MCP Server
 1. 运行 mcp_sse_server.py
 2. 确保看到 "Server started on port 8080"
+
 ## 配置 MCP Server
 
 1. 登录 Trae 
@@ -39,7 +40,7 @@
 
 1. 在聊天界面选择anp网络智能体
 2. 查看工具状态是否为"已连接"
-2. 在聊天界面输入“请使用anp的endpoint去启动did服务器 然后用客户端发送 你好”
+2. 在聊天界面输入"请使用anp的endpoint去启动did服务器 然后用客户端发送 你好"
 3. 查看mcp_sse_server.py 日志确认通信是否正常
 
 ## 注意事项
