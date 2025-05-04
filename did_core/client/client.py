@@ -16,7 +16,7 @@ from typing import Dict, Any, Optional, Tuple
 from loguru import logger
 
 from core.config import settings
-from auth.did_auth import (
+from did_core.auth.did_auth import (
     generate_or_load_did, 
     send_authenticated_request,
     send_request_with_token,
@@ -29,14 +29,14 @@ client_chat_messages = []
 client_new_message_event = asyncio.Event()
 
 # 客户端状态全局变量
-client_running = False
-client_thread = None
+connector_running = False
+connector_thread = None
 
 # 初始化日志
 logger.add("logs/did_client.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
 
 
-async def client_notify_chat_thread(message_data):
+async def ANP_req_notify_chat_thread(message_data):
     """通知聊天线程有新消息
     
     Args:
@@ -53,17 +53,77 @@ async def client_notify_chat_thread(message_data):
     client_new_message_event.set()
 
 
-async def client_example(unique_id: str = None, silent: bool = False, from_chat: bool = False, msg: str = None):
-    """运行客户端示例，演示DID WBA认证
+async def ANP_req_chat(base_url: str, token: str, msg: str, from_chat: bool = False, silent: bool = False):
+    """向聊天接口发送消息并处理响应
     
+    Args:
+        base_url: 服务器基础URL
+        token: 认证令牌
+        msg: 要发送的消息
+        from_chat: 是否来自聊天线程调用
+        silent: 是否抑制日志输出
+        
+    Returns:
+        Tuple[bool, dict]: 发送状态和响应数据
+    """
+    anp_nlp_url = f"{base_url}/wba/anp-nlp"
+    token = os.environ.get('did-token', token)
+    logging.info("发送消息到聊天接口")
+    try:
+        chat_status, chat_response = await send_request_with_token(
+            anp_nlp_url, 
+            token, 
+            method="POST", 
+            json_data={"message": msg}
+        )
+        if chat_status == 200:
+            logging.info(f"消息发送成功! 回复: {chat_response}")
+            if from_chat:
+                # 如果是从聊天线程调用，发送通知而不是打印
+                await ANP_req_notify_chat_thread({
+                    "type": "anp_nlp",
+                    "user_message": msg,
+                    "assistant_message": chat_response.get('answer', '[无回复]'),
+                    "status": "success"
+                })
+            elif not silent:
+                print(f"\nanp消息\"{msg}\"成功发送，服务器回复: {chat_response.get('answer', '[无回复]')}")
+            return True, chat_response
+        else:
+            logging.error(f"消息发送失败! 状态: {chat_status}")
+            logging.error(f"响应: {chat_response}")
+            if from_chat:
+                await ANP_req_notify_chat_thread({
+                    "type": "anp_nlp",
+                    "status": "error",
+                    "message": "消息发送失败"
+                })
+            elif not silent:
+                print("\n消息发送失败，客户端示例完成。")
+            return False, chat_response
+    except Exception as ce:
+        logging.error(f"发送消息时出错: {ce}")
+        if from_chat:
+            await ANP_req_notify_chat_thread({
+                "type": "anp_nlp",
+                "status": "error",
+                "message": f"发送消息时出错: {ce}"
+            })
+        elif not silent:
+            print(f"\n发送消息时出错: {ce}")
+        return False, {"error": str(ce)}
+
+
+async def ANP_req_auth(unique_id: str = None, silent: bool = False, from_chat: bool = False, msg: str = None):
+    """执行ANP DID-WBA认证 完成DID认证和Token获取验证 存储Token为环境变量
     Args:
         unique_id: 可选的唯一标识符
         silent: 是否抑制日志输出
-        from_chat: 调用是否来自聊天线程
-        msg: 要发送的消息
+        from_chat: 是否来自聊天线程调用
+        msg: 可选的初始消息
     """
     if msg is None:
-        msg = "ANP客户端的问候，请回复我今天北京的天气"
+        msg = "ANP connector认证测试"
     try:
         # 1. 生成或加载DID文档
         if not unique_id:
@@ -102,63 +162,26 @@ async def client_example(unique_id: str = None, silent: bool = False, from_chat:
             
         logging.info(f"认证成功! 响应: {response}")
         
-        # 5. 如果收到令牌，使用它进行后续请求
+        # 5. 如果收到令牌，验证令牌并存储
         if token:
             logging.info("收到访问令牌，尝试用于下一个请求")
             status, response = await send_request_with_token(test_url, token)
             
             if status == 200:
-                logging.info(f"令牌认证成功! 响应: {response}")
+                logging.info(f"令牌认证成功! 保存当前令牌！响应: {response}")
+                os.environ['did-token'] = token
+                
+                """
                 # 发送消息到聊天接口
-                anp_nlp_url = f"{base_url}/wba/anp-nlp"
-                logging.info("发送消息到聊天接口")
-                try:
-                    chat_status, chat_response = await send_request_with_token(
-                        anp_nlp_url, 
-                        token, 
-                        method="POST", 
-                        json_data={"message": msg}
-                    )
-                    if chat_status == 200:
-                        logging.info(f"消息发送成功! 回复: {chat_response}")
-                        if from_chat:
-                            # 如果是从聊天线程调用，发送通知而不是打印
-                            await client_notify_chat_thread({
-                                "type": "anp_nlp",
-                                "user_message": msg,
-                                "assistant_message": chat_response.get('answer', '[无回复]'),
-                                "status": "success"
-                            })
-                        elif not silent:
-                            print(f"\nanp消息\"{msg}\"成功发送，服务器回复: {chat_response.get('answer', '[无回复]')}")
-                    else:
-                        logging.error(f"消息发送失败! 状态: {chat_status}")
-                        logging.error(f"响应: {chat_response}")
-                        if from_chat:
-                            await client_notify_chat_thread({
-                                "type": "anp_nlp",
-                                "status": "error",
-                                "message": "消息发送失败"
-                            })
-                        elif not silent:
-                            print("\n消息发送失败，客户端示例完成。")
-                except Exception as ce:
-                    logging.error(f"发送消息时出错: {ce}")
-                    if from_chat:
-                        await client_notify_chat_thread({
-                            "type": "anp_nlp",
-                            "status": "error",
-                            "message": f"发送消息时出错: {ce}"
-                        })
-                    elif not silent:
-                        print(f"\n发送消息时出错: {ce}")
+                await ANP_connector_chat(base_url, token, msg, from_chat, silent)
                 if not from_chat and not silent:
                     print("\n客户端示例完成。")
+                    """
             else:
                 logging.error(f"令牌认证失败! 状态: {status}")
                 logging.error(f"响应: {response}")
                 if from_chat:
-                    await client_notify_chat_thread({
+                    await ANP_req_notify_chat_thread({
                         "type": "anp_nlp",
                         "status": "error",
                         "message": "令牌认证失败"
@@ -173,43 +196,42 @@ async def client_example(unique_id: str = None, silent: bool = False, from_chat:
         logging.error(f"客户端示例中出错: {e}")
 
 
-def run_client(unique_id=None, message=None):
+def run_connector(unique_id=None, message=None):
     """在子线程中运行客户端"""
-    global client_running
+    global connector_running
     try:
         # 创建事件循环
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
         # 运行客户端示例
-        client_running = True
-        loop.run_until_complete(client_example(unique_id=unique_id, from_chat=True, msg=message))
+        connector_running = True
+        loop.run_until_complete(ANP_req_auth(unique_id=unique_id, from_chat=True, msg=message))
         
         # 关闭事件循环
         loop.close()
     except Exception as e:
         logger.error(f"客户端运行出错: {e}")
     finally:
-        client_running = False
+        connector_running = False
         logger.info("客户端已停止")
 
 
-def start_client(port=None, unique_id=None, message=None):
-    """启动DID WBA客户端
-    
+def ANP_connector_start(port=None, unique_id=None, message=None):
+    """连接ANP DID-WBA服务器
+
     Args:
-        port: 可选的目标服务器端口号
-        unique_id: 可选的客户端唯一标识符
-        message: 要发送的消息
-        
+        port: 可选的端口号
+        unique_id: 可选的唯一标识符
+        message: 可选的初始消息
     Returns:
-        bool: 客户端是否成功启动
+        bool: 连接是否成功
     """
-    global client_running, client_thread, settings
+    global connector_running, connector_thread, settings
     
     # 检查客户端是否已经在运行
-    if client_running:
-        logger.warning("客户端已经在运行中")
+    if connector_running:
+        logger.warning("正在连接ANP DID-WBA服务器...")
         return True
     
     # 如果指定了端口，更新设置
@@ -218,13 +240,13 @@ def start_client(port=None, unique_id=None, message=None):
     
     try:
         # 创建并启动客户端线程
-        client_thread = threading.Thread(target=run_client, args=(unique_id, message))
-        client_thread.daemon = True
-        client_thread.start()
+        connector_thread = threading.Thread(target=run_connector, args=(unique_id, message))
+        connector_thread.daemon = True
+        connector_thread.start()
         
         # 等待客户端启动
         for _ in range(10):
-            if client_running:
+            if connector_running:
                 logger.info(f"客户端已启动，目标端口: {settings.TARGET_SERVER_PORT}")
                 return True
             time.sleep(0.5)
@@ -236,23 +258,23 @@ def start_client(port=None, unique_id=None, message=None):
         return False
 
 
-def stop_client():
+def ANP_connector_stop():
     """停止DID WBA客户端
     
     Returns:
         bool: 客户端是否成功停止
     """
-    global client_running, client_thread
+    global connector_running, connector_thread
     
-    if not client_running:
+    if not connector_running:
         logger.warning("客户端未运行")
         return True
     
     try:
         # 等待客户端停止
-        client_running = False
-        if client_thread and client_thread.is_alive():
-            client_thread.join(timeout=5)
+        connector_running = False
+        if connector_thread and connector_thread.is_alive():
+            connector_thread.join(timeout=5)
         
         logger.info("客户端已停止")
         return True

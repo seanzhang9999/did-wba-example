@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
 from api import auth_router, did_router, ad_router, anp_nlp_router
-from auth.auth_middleware import auth_middleware
+from did_core.auth.auth_middleware import auth_middleware
 
 
 def create_app() -> FastAPI:

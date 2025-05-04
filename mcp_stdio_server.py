@@ -23,8 +23,8 @@ from loguru import logger
 from mcp.server.fastmcp import FastMCP, Context
 
 # Import DID WBA server and client functions
-from did_core.server.server import start_server, stop_server, server_status
-from did_core.client.client import start_client, stop_client, client_running, client_chat_messages, client_new_message_event
+from did_core.server.server import ANP_resp_start, ANP_resp_stop, server_status
+from did_core.client.client import ANP_connector_start, ANP_connector_stop, connector_running, client_chat_messages, client_new_message_event
 
 # Import server-side message handling
 from api.anp_nlp_router import chat_messages, new_message_event as server_new_message_event
@@ -60,9 +60,9 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     finally:
         # Cleanup on shutdown
         if app_context.server_status.get("running"):
-            stop_server()
+            ANP_resp_stop()
         if app_context.client_status.get("running"):
-            stop_client()
+            ANP_connector_stop()
 
 # Pass lifespan to server
 mcp = FastMCP("DID WBA MCP Server", lifespan=app_lifespan)
@@ -156,7 +156,7 @@ def start_did_server(ctx: Context, port: Optional[int] = None) -> Dict[str, Any]
 
     try:
         logger.info(f"Starting DID WBA server on port {port if port else 'default'}")
-        if not start_server(port=port):  # 检查启动返回值
+        if not ANP_resp_start(port=port):  # 检查启动返回值
             raise RuntimeError("服务器启动失败")
 
         # 服务器已经启动，不需要等待状态更新
@@ -191,7 +191,7 @@ async def stop_did_server(ctx: Context) -> Dict[str, Any]:
         return {"status": "not_running", "message": "服务器未运行"}
     
     # Stop the server
-    stop_server()
+    ANP_resp_stop()
     
     # Update app context
     app_context.server_status = {"running": False, "port": None}
@@ -215,16 +215,16 @@ async def start_did_client(ctx: Context, port: Optional[int] = None, unique_id: 
     Returns:
         Dict with client status information
     """
-    global client_running
+    global connector_running
 
     app_context = ctx.request_context.lifespan_context
     
     # Check if client is already running
-    if client_running:
+    if connector_running:
         return {"status": "already_running", "message": "客户端已经在运行中"}
     
     # Start the client
-    start_client(port=port, unique_id_arg=unique_id, silent=False, from_chat=False, msg=message)
+    ANP_connector_start(port=port, unique_id_arg=unique_id, silent=False, from_chat=False, msg=message)
     
     # Update app context
     app_context.client_status = {"running": True, "port": port, "unique_id": unique_id}
@@ -245,11 +245,11 @@ async def stop_did_client(ctx: Context) -> Dict[str, Any]:
     app_context = ctx.request_context.lifespan_context
     
     # Check if client is running
-    if not client_running:
+    if not connector_running:
         return {"status": "not_running", "message": "客户端未运行"}
     
     # Stop the client
-    stop_client()
+    ANP_connector_stop()
     
     # Update app context
     app_context.client_status = {"running": False, "port": None, "unique_id": None}
@@ -314,15 +314,15 @@ async def get_status() -> Dict[str, Any]:
     Returns:
         Dict with status information
     """
-    global server_status, client_running, connection_events
+    global server_status, connector_running, connection_events
     return {
         "server": {
             "running": server_status.is_running(),
             "status": {"running": server_status.is_running()}
         },
         "client": {
-            "running": client_running,
-            "status": {"running": client_running}
+            "running": connector_running,
+            "status": {"running": connector_running}
         },
         "connection_events_count": len(connection_events)
     }

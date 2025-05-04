@@ -71,7 +71,7 @@ async def root():
     }
 
 
-def start_server(port=None):
+def ANP_resp_start(port=None):
     """启动DID WBA服务器
     
     Args:
@@ -142,7 +142,7 @@ def start_server(port=None):
         return False
 
 
-def stop_server():
+def ANP_resp_stop():
     """停止DID WBA服务器
     
     Returns:

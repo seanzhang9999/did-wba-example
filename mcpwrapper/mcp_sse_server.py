@@ -17,16 +17,16 @@ from mcp.server.fastmcp import FastMCP, Context
 
 # Import DID WBA server and client functions
 from did_core.server.server import (
-    start_server,
-    stop_server,
+    ANP_resp_start,
+    ANP_resp_stop,
     server_status,
     # server_running,  # 不再直接使用全局变量
 )
 
 from did_core.client.client import (
-    start_client,
-    stop_client,
-    client_running,
+    ANP_connector_start,
+    ANP_connector_stop,
+    connector_running,
     client_chat_messages,
     client_new_message_event
 )
@@ -76,9 +76,9 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     finally:
         # Cleanup on shutdown
         if app_context.server_status.get("running"):
-            stop_server()
+            ANP_resp_stop()
         if app_context.client_status.get("running"):
-            stop_client()
+            ANP_connector_stop()
 
 
 # Pass lifespan to server
@@ -180,7 +180,7 @@ async def start_did_server(ctx: Context, port: Optional[int] = None) -> Dict[str
         logger.info(f"Starting DID WBA server on port {port if port else 'default'}")
         
         # 直接调用start_server，它内部已经实现了子线程启动
-        start_server(port=port)
+        ANP_resp_start(port=port)
 
         max_retries = 10  # 增加重试次数
         for _ in range(max_retries):
@@ -219,7 +219,7 @@ async def stop_did_server(ctx: Context) -> Dict[str, Any]:
         return {"status": "not_running", "message": "服务器未运行"}
 
     # Stop the server
-    stop_server()
+    ANP_resp_stop()
 
     # Update app context
     app_context.server_status = {"running": False, "port": None}
@@ -244,21 +244,21 @@ async def start_did_client(ctx: Context, port: Optional[int] = None, unique_id: 
     Returns:
         Dict with client status information
     """
-    global client_running, client_chat_messages, client_new_message_event
+    global connector_running, client_chat_messages, client_new_message_event
 
     app_context = ctx.request_context.lifespan_context
 
     # Check if client is already running
-    if client_running:
+    if connector_running:
         return {"status": "already_running", "message": "客户端已经在运行中"}
     
     # 在启动客户端前先清除事件和消息列表
     client_new_message_event.clear()
     
     # Start the client - 在单独的线程中运行run_client
-    from did_core.client.client import run_client
+    from did_core.client.client import run_connector
     import threading
-    client_thread = threading.Thread(target=run_client, args=(unique_id, message))
+    client_thread = threading.Thread(target=run_connector, args=(unique_id, message))
     client_thread.daemon = True
     client_thread.start()
 
@@ -287,11 +287,11 @@ async def stop_did_client(ctx: Context) -> Dict[str, Any]:
     app_context = ctx.request_context.lifespan_context
 
     # Check if client is running
-    if not client_running:
+    if not connector_running:
         return {"status": "not_running", "message": "客户端未运行"}
 
     # Stop the client
-    stop_client()
+    ANP_connector_stop()
 
     # Update app context
     app_context.client_status = {"running": False, "port": None, "unique_id": None}
@@ -369,7 +369,7 @@ async def clear_connection_events(ctx: Context) -> Dict[str, Any]:
 @mcp.resource("status://did-wba")
 async def get_status() -> str:
     """获取DID WBA服务器和客户端状态"""
-    global connection_events, server_status, client_running
+    global connection_events, server_status, connector_running
     
     # 创建状态信息
     status_info = {
@@ -378,8 +378,8 @@ async def get_status() -> str:
             "status": {"running": server_status.is_running(), "port": server_status.port}
         },
         "client": {
-            "running": client_running,
-            "status": {"running": client_running}
+            "running": connector_running,
+            "status": {"running": connector_running}
         },
         "connection_events_count": len(connection_events)
     }

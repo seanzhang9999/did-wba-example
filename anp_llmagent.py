@@ -10,8 +10,8 @@ import os
 from loguru import logger
 
 # 导入服务器和客户端功能
-from did_core.server.server import start_server, stop_server, server_running
-from did_core.client.client import start_client, stop_client, client_running, client_chat_messages, client_new_message_event
+from did_core.server.server import ANP_resp_start, ANP_resp_stop, server_running
+from did_core.client.client import ANP_connector_start, ANP_connector_stop, connector_running, client_chat_messages, client_new_message_event
 
 # 从API模块导入服务器端消息处理
 from api.anp_nlp_router import chat_messages, new_message_event as server_new_message_event
@@ -44,7 +44,7 @@ def main():
     if args.command == "server":
         # 启动服务器
         print(f"正在启动DID WBA服务器...")
-        if start_server(port=args.port):
+        if ANP_resp_start(port=args.port):
             print(f"服务器已启动，按Ctrl+C停止")
             try:
                 # 保持主线程运行，直到用户按Ctrl+C
@@ -53,7 +53,7 @@ def main():
                     time.sleep(1)
             except KeyboardInterrupt:
                 print("\n正在停止服务器...")
-                stop_server()
+                ANP_resp_stop()
                 print("服务器已停止")
         else:
             print("服务器启动失败")
@@ -62,15 +62,15 @@ def main():
     elif args.command == "client":
         # 启动客户端
         print(f"正在启动DID WBA客户端...")
-        if start_client(port=args.port, unique_id=args.id, message=args.message):
+        if ANP_connector_start(port=args.port, unique_id=args.id, message=args.message):
             print(f"客户端已启动，等待完成...")
             # 等待客户端完成
             import time
             for _ in range(30):  # 最多等待30秒
-                if not client_running:
+                if not connector_running:
                     break
                 time.sleep(1)
-            stop_client()
+            ANP_connector_stop()
             print("客户端已停止")
         else:
             print("客户端启动失败")
