@@ -1,38 +1,44 @@
 """DID WBA Example with both Client and Server capabilities."""
-import os
+import argparse
+import asyncio
 import json
 import logging
-import uvicorn
-import asyncio
-import secrets
-import argparse
-import signal
-import threading
-import sys
-import time
-import httpx
-
+import os
 from pathlib import Path
-from typing import Dict, Any
+import secrets
+import signal
+import sys
+import threading
+import time
+from typing import Any, Dict
 
+import httpx
 from loguru import logger
+import uvicorn
 
-from core.config import settings
+from api.anp_nlp_router import (
+    anp_nlp_resp_messages,
+    anp_nlp_resp_new_message_event as server_new_message_event,
+)
 from core.app import create_app
+from core.config import settings
 from did_core.auth.did_auth import (
-    generate_or_load_did, 
+    DIDWbaAuthHeader,
+    generate_or_load_did,
     send_authenticated_request,
     send_request_with_token,
-    DIDWbaAuthHeader
 )
+from did_core.client.client import (
+    ANP_connector_start as core_start_client,
+    ANP_connector_stop,
+    ANP_req_auth,
+    ANP_req_chat,
+    client_chat_messages as core_client_chat_messages,
+    client_new_message_event as core_client_new_message_event,
+    connector_running as core_client_running,
+)
+from did_core.server.server import ANP_resp_start, ANP_resp_stop, server_status
 from utils.log_base import set_log_color_level
-
-# 导入服务器和客户端功能
-from did_core.server.server import ANP_resp_start, ANP_resp_stop , server_status 
-from did_core.client.client import ANP_req_auth, ANP_req_chat, ANP_connector_start as core_start_client, ANP_connector_stop , connector_running as core_client_running, client_chat_messages as core_client_chat_messages, client_new_message_event as core_client_new_message_event
-
-# 从API模块导入服务器端消息处理
-from api.anp_nlp_router import chat_messages, new_message_event as server_new_message_event
 
 # 全局变量，用于存储最新的聊天消息
 client_chat_messages = []
@@ -62,15 +68,15 @@ async def root():
         "documentation": "/docs"
     }
 
-
+"""
 async def client_example(unique_id: str = None, silent: bool = False, from_chat: bool = False , msg : str = None):
-    """    Run the client example to demonstrate DID WBA authentication.
+        Run the client example to demonstrate DID WBA authentication.
     
     Args:
         unique_id: Optional unique identifier
         silent: Whether to suppress log output
         from_chat: Whether the call is from chat thread
-    """
+    
     if msg is None:
         msg = "ANP客户端的问候，请回复我今天北京的天气"
     try:
@@ -180,7 +186,7 @@ async def client_example(unique_id: str = None, silent: bool = False, from_chat:
             
     except Exception as e:
         logging.error(f"Error in client example: {e}")
-
+"""
 
 # 全局变量，用于存储服务器、客户端和聊天线程
 server_thread = None
@@ -192,9 +198,9 @@ chat_running = False
 unique_id = None
 server_instance = None  # 存储uvicorn.Server实例
 
-
+"""
 def run_server():
-    """在子线程中运行uvicorn服务器"""
+    在子线程中运行uvicorn服务器
     global server_running, server_instance
     try:
         config = uvicorn.Config(
@@ -217,7 +223,7 @@ def run_server():
     finally:
         server_running = False
         core_server_status.set_running(False)  # 同时设置core_server_status
-
+"""
 
 async def client_notify_chat_thread(message_data: Dict[str, Any]):
     """
@@ -243,8 +249,8 @@ async def client_notify_chat_thread(message_data: Dict[str, Any]):
     logging.info(f"ANP对方响应: {message_data['assistant_message']}")
     
     # 打印到控制台，确保在聊天线程中可见
-    print(f"\n[ANP-NLP] 我方@{settings.PORT}: {message_data['user_message']}")
-    print(f"[ANP-NLP] 对方@{settings.TARGET_SERVER_PORT}:  {message_data['assistant_message']}\n")
+    print(f"\nANP-req从本地发出: {message_data['user_message']}")
+    print(f"\nANP-req从@{settings.TARGET_SERVER_PORT}收到:  {message_data['assistant_message']}\n")
     
     # 重置事件，为下一次通知做准备
     client_new_message_event.clear()
@@ -361,43 +367,76 @@ def chat_to_ANP(custom_msg, token=None, unique_id_arg=None):
         token: 认证令牌，如果为None则会启动客户端认证获取token
         unique_id_arg: 可选的唯一ID，用于客户端认证
     """
-    # 检查是否在事件循环中运行
-    try:
-        # 尝试获取当前事件循环
-        loop = asyncio.get_running_loop()
-        # 如果在事件循环中，创建任务
-        asyncio.create_task(_chat_to_ANP_impl(custom_msg, token, unique_id_arg))
-    except RuntimeError:
-        # 如果不在事件循环中，创建新的事件循环运行协程
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(_chat_to_ANP_impl(custom_msg, token, unique_id_arg))
-        finally:
-            loop.close()
+    # 使用线程模式运行，避免事件循环问题
+    thread = threading.Thread(
+        target=_chat_to_ANP_thread,
+        args=(custom_msg, token, unique_id_arg),
+        daemon=True
+    )
+    thread.start()
     return True
 
+def _chat_to_ANP_thread(custom_msg, token=None, unique_id_arg=None):
+    """在线程中运行异步函数的同步包装器"""
+    # 创建新的事件循环
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        # 运行异步函数
+        loop.run_until_complete(_chat_to_ANP_impl(custom_msg, token, unique_id_arg))
+    except Exception as e:
+        logging.error(f"线程中运行_chat_to_ANP_impl时出错: {e}")
+        print(f"发送消息时出错: {e}")
+    finally:
+        # 关闭事件循环
+        loop.close()
 async def _chat_to_ANP_impl(custom_msg, token=None, unique_id_arg=None):
     """发送消息的实际实现（内部函数）
     """
     try:
+        target_host = settings.TARGET_SERVER_HOST
+        target_port = settings.TARGET_SERVER_PORT
+        base_url = f"http://{target_host}:{target_port}"
+        
         if not token:
             print(f"无token，正在启动客户端认证获取token...\n并发送消息: {custom_msg}")
             await ANP_req_auth(unique_id=unique_id_arg, msg=custom_msg)
-            target_host = settings.TARGET_SERVER_HOST
-            target_port = settings.TARGET_SERVER_PORT
-            base_url = f"http://{target_host}:{target_port}"
-            await ANP_req_chat(base_url=base_url, silent=True, from_chat=True, msg=custom_msg, token=token)
+            token = os.environ.get('did-token', None)
+            
+        print(f"使用token...\n发送消息: {custom_msg}")
+        # 调用did_core中的send_message_to_chat函数
+        status, response = await ANP_req_chat(base_url=base_url, silent=True, from_chat=True, msg=custom_msg, token=token)
+        
+        # 通知聊天线程有新消息
+        if status:
+            await client_notify_chat_thread({
+                "type": "anp_nlp",  # 确保类型与run_chat中的处理逻辑匹配
+                "user_message": custom_msg,
+                "assistant_message": response.get('answer', '[无回复]') if isinstance(response, dict) else str(response),
+                "status": "success"
+            })
+            # 修复：确保custom_msg是字符串而不是尝试作为字典访问
+            print(f"\nANP-resp收自@: {custom_msg}")
+            # 修复：直接使用response中的answer字段
+            print(f"\nANP-res返回: {response.get('answer', '[无回复]') if isinstance(response, dict) else str(response)}\n")
         else:
-            print(f"使用token...\n发送消息: {custom_msg}")
-            target_host = settings.TARGET_SERVER_HOST
-            target_port = settings.TARGET_SERVER_PORT
-            base_url = f"http://{target_host}:{target_port}"
-            # 调用did_core中的send_message_to_chat函数
-            await ANP_req_chat(base_url=base_url, silent=True, from_chat=True, msg=custom_msg, token=token)
+            await client_notify_chat_thread({
+                "type": "anp_nlp",
+                "status": "error",
+                "message": f"发送消息失败: {response}"
+            })
     except Exception as e:
         logging.error(f"发送消息时出错: {e}")
         print(f"发送消息时出错: {e}")
+        # 通知聊天线程出错
+        try:
+            await client_notify_chat_thread({
+                "type": "anp_nlp",
+                "status": "error",
+                "message": f"发送消息时出错: {e}"
+            })
+        except Exception:
+            pass
 
 
 async def run_chat():
@@ -406,7 +445,7 @@ async def run_chat():
 
     try:
         # 导入ANP-NLP路由器中的事件和消息
-        from api.anp_nlp_router import new_message_event, chat_messages, notify_chat_thread
+        from api.anp_nlp_router import anp_nlp_resp_new_message_event, anp_nlp_resp_messages, notify_chat_thread
         
         # 检查OpenRouter API密钥是否配置
         openrouter_api_key = os.getenv("OPENROUTER_API_KEY", "")
@@ -483,30 +522,68 @@ async def run_chat():
                 
                 # 检查是否有来自ANP-NLP API或client_example的新消息
                 try:
-                    # 使用超时等待，避免阻塞主线程
-                    await asyncio.wait_for(new_message_event.wait(), 0.1)
+                    # 创建两个等待事件的任务
+                    server_wait = asyncio.create_task(asyncio.wait_for(anp_nlp_resp_new_message_event.wait(), 0.1))
+                    client_wait = asyncio.create_task(asyncio.wait_for(client_new_message_event.wait(), 0.1))
                     
-                    # 如果有新消息，处理并显示
-                    if chat_messages and new_message_event.is_set():
+                    # 等待任意一个任务完成
+                    done, pending = await asyncio.wait(
+                        [server_wait, client_wait],
+                        return_when=asyncio.FIRST_COMPLETED,
+                        timeout=0.1
+                    )
+                    
+                    # 取消未完成的任务
+                    for task in pending:
+                        task.cancel()
+                    
+                    # 处理服务器端消息
+                    if server_wait in done and anp_nlp_resp_new_message_event.is_set():
                         # 重置事件
-                        new_message_event.clear()
+                        anp_nlp_resp_new_message_event.clear()
                         
                         # 获取最新消息
-                        latest_message = chat_messages[-1]
+                        if anp_nlp_resp_messages:
+                            latest_message = anp_nlp_resp_messages[-1]
+                            
+                            # 根据消息类型显示不同内容
+                            if latest_message.get("type") == "client_example":
+                                # 处理来自client_example的消息
+                                status = latest_message.get("status")
+                                if status == "success":
+                                    user_msg = latest_message.get("user_message", "")
+                                    assistant_msg = latest_message.get("assistant_message", "")
+                                    print(f"\n[服务器] 消息\"{user_msg}\"发送成功，服务器回复: {assistant_msg}")
+                                else:
+                                    error_msg = latest_message.get("message", "未知错误")
+                                    print(f"\n[服务器] 错误: {error_msg}")
+                    
+                    # 处理客户端消息
+                    if client_wait in done and client_new_message_event.is_set():
+                        # 重置事件
+                        client_new_message_event.clear()
                         
-                        # 根据消息类型显示不同内容
-                        if latest_message.get("type") == "client_example":
-                            # 处理来自client_example的消息
-                            status = latest_message.get("status")
-                            if status == "success":
-                                user_msg = latest_message.get("user_message", "")
-                                assistant_msg = latest_message.get("assistant_message", "")
-                                print(f"\n[客户端] 消息\"{user_msg}\"发送成功，服务器回复: {assistant_msg}")
-                            else:
-                                error_msg = latest_message.get("message", "未知错误")
-                                print(f"\n[客户端] 错误: {error_msg}")
+                        # 获取最新消息
+                        if client_chat_messages:
+                            latest_message = client_chat_messages[-1]
+                            
+                            # 根据消息类型显示不同内容
+                            if latest_message.get("type") == "anp_nlp":
+                                # 处理来自ANP_req_chat的消息
+                                status = latest_message.get("status")
+                                if status == "success":
+                                    user_msg = latest_message.get("user_message", "")
+                                    assistant_msg = latest_message.get("assistant_message", "")
+                                    print(f"\n[客户端] 消息\"{user_msg}\"发送成功，服务器回复: {assistant_msg}")
+                                else:
+                                    error_msg = latest_message.get("message", "未知错误")
+                                    print(f"\n[客户端] 错误: {error_msg}")
+                    
                 except asyncio.TimeoutError:
                     # 超时，继续下一次循环
+                    pass
+                except Exception as e:
+                    logging.error(f"处理消息通知时出错: {e}")
                     pass
     except Exception as e:
         logging.error(f"聊天线程出错: {e}")
@@ -582,7 +659,7 @@ def show_help():
     print("可用命令:")
     print("  start resp [port] - 启动anp服务器，可选指定端口号")
     print("  stop resp - 停止anp服务器")
-    print("  start req [port] [unique_id] - 启动anp请求，可选指定目标服务器端口和唯一ID")
+    print("  start req [msg] [port] [unique_id] - 启动anp请求，可选指定目标服务器端口和唯一ID")
     print("  stop req - 停止anp请求")
     print("  start llm - 启动LLM聊天线程")
     print("  stop llm - 停止LLM聊天线程")
@@ -718,15 +795,18 @@ def main():
             elif command.startswith("start req"):
                 # 检查是否指定了port和unique_id
                 parts = command.split()
-                if len(parts) > 3:
-                    # 同时指定了port和unique_id
-                    chat_to_ANP("123", parts[2], parts[3])
+                if len(parts) > 4:
+                    #
+                    chat_to_ANP(parts[2],parts[3], parts[4])
+                elif len(parts) > 3:
+                    # 只指定了port
+                    chat_to_ANP(parts[2],parts[3])
                 elif len(parts) > 2:
                     # 只指定了port
-                    chat_to_ANP("123",parts[2])
+                    chat_to_ANP(parts[2])
                 else:
                     # 没有指定参数
-                    chat_to_ANP("123")
+                    chat_to_ANP("这是一条测试消息，请回复")
                 # 阻塞主进程直到 client_thread 结束，避免输入竞争
                 if client_thread:
                     client_thread.join()

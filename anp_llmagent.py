@@ -14,7 +14,7 @@ from did_core.server.server import ANP_resp_start, ANP_resp_stop, server_running
 from did_core.client.client import ANP_connector_start, ANP_connector_stop, connector_running, client_chat_messages, client_new_message_event
 
 # 从API模块导入服务器端消息处理
-from api.anp_nlp_router import chat_messages, new_message_event as server_new_message_event
+from api.anp_nlp_router import anp_nlp_resp_messages, anp_nlp_resp_new_message_event as server_new_message_event
 
 # 设置日志
 logger.add("logs/anp_llm.log", rotation="1000 MB", retention="7 days", encoding="utf-8")

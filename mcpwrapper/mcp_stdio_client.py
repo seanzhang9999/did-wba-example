@@ -112,6 +112,17 @@ async def run_client_session(streams):
         # 等待1秒确保客户端初始化完成
         await asyncio.sleep(1)
 
+        # 测试chat_to_ANP功能
+        logger.info("10. 测试chat_to_ANP功能...")
+        try:
+            chat_result = await session.call_tool(
+                "chat_to_ANP",
+                {"custom_msg": "这是通过chat_to_ANP工具发送的测试消息"}
+            )
+            logger.info(f"10. 消息发送结果: {get_text_content_data(chat_result.content)}")
+        except Exception as e:
+            logger.error(f"10. 消息发送失败: {e}")
+
         # 确认客户端状态
         client_status = await session.read_resource("status://did-wba")
         logger.info(f"客户端状态: {client_status.contents}")

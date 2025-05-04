@@ -35,7 +35,7 @@ from starlette.routing import Mount, Route
 import uvicorn
 
 # Import server-side message handling
-from api.anp_nlp_router import chat_messages, new_message_event as server_new_message_event
+from api.anp_nlp_router import anp_nlp_resp_messages, anp_nlp_resp_new_message_event as server_new_message_event
 
 # Store connection events for notification
 connection_events = []
@@ -82,7 +82,7 @@ mcp = FastMCP("DID WBA MCP Server", lifespan=app_lifespan, port=8080)
 async def connection_event_listener(app_context: AppContext):
     """Listen for connection events from both DID WBA client and server."""
     global client_chat_messages, client_new_message_event, connection_events, new_connection_event
-    global chat_messages, server_new_message_event
+    global anp_nlp_resp_messages, server_new_message_event
 
     # 创建两个任务，分别监听客户端和服务器端的消息
     while True:
@@ -124,9 +124,9 @@ async def connection_event_listener(app_context: AppContext):
 
             # 处理服务器端消息
             if server_task in done and server_new_message_event.is_set():
-                if chat_messages:
+                if anp_nlp_resp_messages:
                     # 获取最新消息
-                    latest_message = chat_messages[-1]
+                    latest_message = anp_nlp_resp_messages[-1]
                     latest_message['source'] = 'server'  # 添加来源标记
 
                     # 添加到连接事件

@@ -20,9 +20,9 @@ from agent_connect.authentication import (
 from core.config import Settings
 
 # 全局变量，用于存储最新的聊天消息
-chat_messages = []
+anp_nlp_resp_messages = []
 # 事件，用于通知聊天线程有新消息
-new_message_event = asyncio.Event()
+anp_nlp_resp_new_message_event = asyncio.Event()
 
 router = APIRouter(tags=["chat"])
 
@@ -117,27 +117,27 @@ async def notify_chat_thread(message_data: Dict[str, Any], did: str):
     Args:
         message_data: 消息数据
     """
-    global chat_messages, new_message_event
+    global anp_nlp_resp_messages, anp_nlp_resp_new_message_event
     
     # 添加消息到全局列表
-    chat_messages.append(message_data)
+    anp_nlp_resp_messages.append(message_data)
     
     # 如果列表太长，保留最近的50条消息
-    if len(chat_messages) > 50:
-        chat_messages = chat_messages[-50:]
+    if len(anp_nlp_resp_messages) > 50:
+        anp_nlp_resp_messages = anp_nlp_resp_messages[-50:]
     
     # 设置事件，通知聊天线程
-    new_message_event.set()
+    anp_nlp_resp_new_message_event.set()
     
     # 在控制台显示通知
-    logging.info(f"ANP-NLP请求: {message_data['user_message']}")
-    logging.info(f"ANP-NLP响应: {message_data['assistant_message']}")
+    logging.info(f"ANP-resp收到: {message_data['user_message']}")
+    logging.info(f"ANP-resp返回: {message_data['assistant_message']}")
     
     # 打印到控制台，确保在聊天线程中可见
 
     port= os.environ.get("PORT")
-    print(f"\n[ANP-NLP] 对方@{did}: {message_data['user_message']}")
-    print(f"[ANP-NLP] 我方@{port}: {message_data['assistant_message']}\n")
+    print(f"\nANP-resp收自@{did}: {message_data['user_message']}")
+    print(f"\nANP-resp从{port}返回: {message_data['assistant_message']}\n")
     
     # 注释掉重置事件的代码，让mcp_server.py中的监听器来清除事件
     # new_message_event.clear()
