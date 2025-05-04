@@ -7,12 +7,22 @@
         
         {
             "name": "mcp-debug-stdio-server",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/mcp_integration/server/mcp_stdio_server.py",
+            "program": "${workspaceFolder}/anp_mcpwrapper/mcp_stdio_server.py",
             "console": "integratedTerminal",
             "justMyCode": false,
-            "preLaunchTask": "run-mcp-with-uv"
+            "preLaunchTask": "activate-venv"
+        },
+        {
+            "name": "mcp-debug-sse-server",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/anp_mcpwrapper/mcp_stdio_server.py",
+            "args": "${command:pickArgs}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "preLaunchTask": "activate-venv"
         },
         {
             "name": "Attach to Running MCP Server",
