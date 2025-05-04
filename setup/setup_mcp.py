@@ -41,7 +41,7 @@ def install_mcp_server():
     """Install MCP server to Claude Desktop."""
     print("安装 MCP 服务器到 Claude Desktop...")
     try:
-        subprocess.check_call(["mcp", "install", "mcp_server.py"])
+        subprocess.check_call(["mcp", "install", "mcp_stdio_server.py"])
         print("MCP 服务器安装成功")
     except subprocess.CalledProcessError as e:
         print(f"安装 MCP 服务器时出错: {e}")
@@ -54,7 +54,7 @@ def run_mcp_server():
     """Run MCP server in development mode."""
     print("启动 MCP 服务器...")
     try:
-        subprocess.check_call(["mcp", "dev", "mcp_server.py"])
+        subprocess.check_call(["mcp", "dev", "mcp_stdio_server.py"])
     except subprocess.CalledProcessError as e:
         print(f"运行 MCP 服务器时出错: {e}")
         sys.exit(1)

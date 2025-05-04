@@ -6,8 +6,8 @@ from typing import List, Optional, Callable
 from fastapi import Request, HTTPException, Response
 from fastapi.responses import JSONResponse
 
-from auth.did_auth import handle_did_auth, get_and_validate_domain
-from auth.token_auth import handle_bearer_auth
+from anp_core.auth.did_auth import handle_did_auth, get_and_validate_domain
+from anp_core.auth.token_auth import handle_bearer_auth
 
 
 # Define exempt paths that don't require authentication

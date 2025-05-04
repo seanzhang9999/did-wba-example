@@ -5,8 +5,8 @@ import logging
 from typing import Dict, Optional
 from fastapi import APIRouter, Request, Header, HTTPException, Depends
 
-from auth.did_auth import get_and_validate_domain, handle_did_auth
-from auth.token_auth import handle_bearer_auth
+from anp_core.auth.did_auth import get_and_validate_domain, handle_did_auth
+from anp_core.auth.token_auth import handle_bearer_auth
 
 router = APIRouter(tags=["authentication"])
 

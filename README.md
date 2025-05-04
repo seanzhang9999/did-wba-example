@@ -1,4 +1,4 @@
-# DID WBA 客户端与服务器示例
+# anp协议认证通信开发示例
 
 [English Version](README_EN.md)
 
@@ -6,19 +6,15 @@
 
 ## 功能特点
 
-### 服务器功能
-- 支持DID WBA认证协议
-- 实现了两类鉴权方式:
-  - DID WBA首次鉴权
-  - Bearer Token鉴权
-- 提供ad.json端点，并进行鉴权
+### resp（服务端）功能
+- anp协议认证：DID WBA首次认证，Bearer Token会话认证
+- anp自然语言通信：/wba/anp-nlp接口进行通信
 
-### 客户端功能
-- 自动生成DID文档和私钥，或加载已有的DID
-- 向服务器发起DID WBA认证请求
-- 接收并处理访问令牌
-- 使用令牌发送后续请求
-
+### req（客户端）功能
+- 自动生成DID和密钥或加载已有身份
+- 向resp发起首次认证和令牌申请
+- 向resp的anp-nlp接口发起消息
+server
 ## 安装方法
 
 ### 环境准备
@@ -40,40 +36,74 @@ source .venv/bin/activate
 poetry install
 ```
 
-## 运行示例
+## 运行方法
 
-### 重要提示：需要先启动服务器，再启动客户端
+本项目提供三种不同的运行方式：
 
-要看到完整的交互效果，必须先启动一个服务器模式，然后再启动客户端模式。因为客户端需要连接到一个已运行的服务器进行认证和交互。
+### 1. 直接调用ANP接口
 
-#### 第一步：启动服务器
-
-```bash
-# 确保虚拟环境已激活
-source .venv/bin/activate
-
-# 在第一个终端窗口启动服务器
-python did_server.py
-```
-
-#### 第二步：启动客户端
+通过运行`anp_llmapp.py`，直接调用`anp_core`中的ANP接口：
 
 ```bash
-# 在第二个终端窗口启动客户端，指定不同端口
-python did_server.py --client --port 8001
+python anp_llmapp.py
 ```
 
-#### 其他命令选项
+### 2. 通过stdio调用MCP接口
+
+运行`mcp_stdio_client.py`，通过stdio调用`mcp_stdio_server.py`封装的ANP接口，可以调试完整MCP流程：
 
 ```bash
-# 指定端口运行服务器
-python did_server.py --port 8001
+# 启动服务端
+python -m anp_mcpwrapper.mcp_stdio_server
 
-# 使用特定id运行客户端
-python did_server.py --client --unique-id your_unique_id
+# 启动客户端
+python -m anp_mcpwrapper.mcp_stdio_client
 ```
 
-服务器将在指定端口(默认8000)启动，可以通过`http://localhost:8000/docs`访问API文档。
+### 3. 通过SSE接口调用
+
+将`mcp_stdio_server.py`启动为SSE服务，通过SSE接口调用：
+
+```bash
+python -m anp_mcpwrapper.mcp_stdio_server -t sse
+```
+
+**注意**：方法2和方法3均已在TRAE环境中配置测试成功。
+
+## 项目结构
+
+```
+.
+├── anp_core/            # 封装便于开发者调用的ANP接口
+├── anp_mcpwrapper/      # 实现MCP接口的对接
+├── api/                 # API路由模块
+├── core/                # 应用框架
+├── doc/                 # 文档说明和测试用key
+├── examples/            # 未来增加面向开发者的更多示例
+├── utils/               # 工具函数
+├── logs/                # 日志文件
+├── setup/               # 后续增加安装方案（当前暂时无用）
+├── anp_llmapp.py        # 直接调用ANP接口的应用
+└── anp_llmagent.py      # 计划开发为开箱即用的agent
+```
+
+## 项目说明
+
+1. **anp_core**：封装便于开发者调用的ANP接口，当前DID认证为本地测试，下一版本将增加实用的DID服务
+
+2. **anp_mcpwrapper**：实现了MCP接口的对接，目前在TRAE环境中测试成功，Claude环境测试不成功
+
+3. **api/core**：应用框架，提供API路由和核心配置
+
+4. **doc**：文档说明和测试用密钥
+
+5. **examples**：未来将增加面向开发者的更多示例
+
+6. **utils/logs**：工具函数和日志文件
+
+7. **setup**：后续将增加安装方案，当前文件暂时无用
+
+8. **anp_llmagent.py**：计划开发为开箱即用的agent，与`anp_llmapp.py`/MCP调用可以互通
 
 ## API端点
 
@@ -82,6 +112,7 @@ python did_server.py --client --unique-id your_unique_id
 - `POST /auth/did-wba`: DID WBA首次鉴权
 - `GET /auth/verify`: 验证Bearer Token
 - `GET /wba/test`: 测试DID WBA认证
+- `POST /wba/anp-nlp`: ANP自然语言通信接口
 - `GET /wba/user/{user_id}/did.json`: 获取用户DID文档
 - `PUT /wba/user/{user_id}/did.json`: 保存用户DID文档
 
@@ -107,12 +138,3 @@ python did_server.py --client --unique-id your_unique_id
 2. **Bearer Token鉴权**：通过JWT令牌进行后续请求鉴权
 
 详细的鉴权流程请参考代码实现和[DID WBA规范](https://github.com/agent-network-protocol/AgentNetworkProtocol/blob/main/chinese/03-did%3Awba%E6%96%B9%E6%B3%95%E8%A7%84%E8%8C%83.md)
-
-## 文件说明
-
-- `did_server.py`: 程序入口，支持客户端和服务器模式
-- `api/`: API路由模块
-- `auth/`: 认证和授权相关模块
-- `core/`: 核心配置和应用初始化
-- `utils/`: 工具函数
-- `did_keys/`: DID文档和私钥存储目录

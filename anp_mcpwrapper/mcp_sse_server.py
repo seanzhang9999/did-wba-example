@@ -1,11 +1,12 @@
-"""MCP Server for DID WBA Example.
+"""MCP Server for DID WBA Example using SSE transport.
 
 This module implements a Model Context Protocol (MCP) server that exposes
-the DID WBA client and server functionalities as MCP tools.
+the DID WBA client and server functionalities as MCP tools using Server-Sent Events (SSE).
 """
 import os
 import asyncio
 import logging
+import json
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from contextlib import asynccontextmanager
@@ -15,13 +16,17 @@ from loguru import logger
 from mcp.server.fastmcp import FastMCP, Context
 
 # Import DID WBA server and client functions
-from did_server import (
-    start_server,
-    stop_server,
-    start_client,
-    stop_client,
-    server_running,
-    client_running,
+from anp_core.server.server import (
+    ANP_resp_start,
+    ANP_resp_stop,
+    server_status,
+    # server_running,  # 不再直接使用全局变量
+)
+
+from anp_core.client.client import (
+    ANP_connector_start,
+    ANP_connector_stop,
+    connector_running,
     client_chat_messages,
     client_new_message_event
 )
@@ -32,16 +37,17 @@ from mcp.server import Server
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.routing import Mount, Route
+from starlette.responses import PlainTextResponse
 import uvicorn
 
 # Import server-side message handling
-from api.anp_nlp_router import chat_messages, new_message_event as server_new_message_event
+from api.anp_nlp_router import anp_nlp_resp_messages, anp_nlp_resp_new_message_event as server_new_message_event
 
 # Store connection events for notification
 connection_events = []
 new_connection_event = asyncio.Event()
 
-logger.add("logs/mcp_stdio_server.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
+logger.add("logs/mcp_sse_server.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
 
 
 @dataclass
@@ -70,9 +76,9 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     finally:
         # Cleanup on shutdown
         if app_context.server_status.get("running"):
-            stop_server()
+            ANP_resp_stop()
         if app_context.client_status.get("running"):
-            stop_client()
+            ANP_connector_stop()
 
 
 # Pass lifespan to server
@@ -82,7 +88,7 @@ mcp = FastMCP("DID WBA MCP Server", lifespan=app_lifespan, port=8080)
 async def connection_event_listener(app_context: AppContext):
     """Listen for connection events from both DID WBA client and server."""
     global client_chat_messages, client_new_message_event, connection_events, new_connection_event
-    global chat_messages, server_new_message_event
+    global anp_nlp_resp_messages, server_new_message_event
 
     # 创建两个任务，分别监听客户端和服务器端的消息
     while True:
@@ -121,12 +127,14 @@ async def connection_event_listener(app_context: AppContext):
 
                     # 重置客户端事件
                     client_new_message_event.clear()
+                    
+                    logger.info(f"客户端消息事件: {latest_message}")
 
             # 处理服务器端消息
             if server_task in done and server_new_message_event.is_set():
-                if chat_messages:
+                if anp_nlp_resp_messages:
                     # 获取最新消息
-                    latest_message = chat_messages[-1]
+                    latest_message = anp_nlp_resp_messages[-1]
                     latest_message['source'] = 'server'  # 添加来源标记
 
                     # 添加到连接事件
@@ -142,12 +150,14 @@ async def connection_event_listener(app_context: AppContext):
 
                     # 重置服务器端事件
                     server_new_message_event.clear()
+                    
+                    logger.info(f"服务器消息事件: {latest_message}")
 
             # 小延迟防止CPU过载
             await asyncio.sleep(0.1)
         except Exception as e:
-            logging.error(f"Error in connection event listener: {e}")
-            await asyncio.sleep(1)  # 出错后等待一段时间再重试
+            logger.error(f"连接事件监听器错误: {e}")
+            await asyncio.sleep(1)  # 出错时暂停一下
 
 
 @mcp.tool()
@@ -160,26 +170,27 @@ async def start_did_server(ctx: Context, port: Optional[int] = None) -> Dict[str
     Returns:
         Dict with server status information
     """
-    global server_running
+    global server_status
     app_context = ctx.request_context.lifespan_context
 
-    if server_running:
+    if server_status.is_running():
         return {"status": "already_running", "message": "服务器已经在运行中"}
 
     try:
         logger.info(f"Starting DID WBA server on port {port if port else 'default'}")
-        if not start_server(port=port):  # 检查启动返回值
-            raise RuntimeError("服务器启动失败")
+        
+        # 直接调用start_server，它内部已经实现了子线程启动
+        ANP_resp_start(port=port)
 
         max_retries = 10  # 增加重试次数
         for _ in range(max_retries):
-            if server_running:
+            if server_status.is_running():
                 break
             await asyncio.sleep(1)  # 增加等待间隔
         else:
             raise RuntimeError("Server did not start in time. Wait server_running event to check status.")
 
-        app_context.server_status = {"running": True, "port": port}
+        app_context.server_status = {"running": True, "port": port or server_status.port}
         return {
             "status": "success",
             "message": f"服务器已在端口 {port if port else '默认端口'} 启动",
@@ -204,11 +215,11 @@ async def stop_did_server(ctx: Context) -> Dict[str, Any]:
     app_context = ctx.request_context.lifespan_context
 
     # Check if server is running
-    if not server_running:
+    if not server_status.is_running():
         return {"status": "not_running", "message": "服务器未运行"}
 
     # Stop the server
-    stop_server()
+    ANP_resp_stop()
 
     # Update app context
     app_context.server_status = {"running": False, "port": None}
@@ -233,24 +244,36 @@ async def start_did_client(ctx: Context, port: Optional[int] = None, unique_id: 
     Returns:
         Dict with client status information
     """
-    global client_running
+    global connector_running, client_chat_messages, client_new_message_event
 
     app_context = ctx.request_context.lifespan_context
 
     # Check if client is already running
-    if client_running:
+    if connector_running:
         return {"status": "already_running", "message": "客户端已经在运行中"}
-
-    # Start the client
-    start_client(port=port, unique_id_arg=unique_id, silent=False, from_chat=False, msg=message)
+    
+    # 在启动客户端前先清除事件和消息列表
+    client_new_message_event.clear()
+    
+    # Start the client - 在单独的线程中运行run_client
+    from anp_core.client.client import run_connector
+    import threading
+    client_thread = threading.Thread(target=run_connector, args=(unique_id, message))
+    client_thread.daemon = True
+    client_thread.start()
 
     # Update app context
     app_context.client_status = {"running": True, "port": port, "unique_id": unique_id}
-
+    
+    # 不再等待消息，立即返回
+    logger.info(f"客户端已启动，目标端口: {port if port else '默认端口'}")
+    logger.info("客户端消息将通过connection_event_listener处理并可通过get_connection_events获取")
+    
     return {
         "status": "success",
         "message": f"客户端已启动，目标端口: {port if port else '默认端口'}",
-        "is_running": True
+        "is_running": True,
+        "info": "客户端消息将通过connection_event_listener处理并可通过get_connection_events获取"
     }
 
 
@@ -264,11 +287,11 @@ async def stop_did_client(ctx: Context) -> Dict[str, Any]:
     app_context = ctx.request_context.lifespan_context
 
     # Check if client is running
-    if not client_running:
+    if not connector_running:
         return {"status": "not_running", "message": "客户端未运行"}
 
     # Stop the client
-    stop_client()
+    ANP_connector_stop()
 
     # Update app context
     app_context.client_status = {"running": False, "port": None, "unique_id": None}
@@ -301,7 +324,7 @@ async def get_connection_events(ctx: Context, wait_for_new: bool = False, timeou
                 # Reset event for next notification
                 new_connection_event.clear()
             except asyncio.TimeoutError:
-                logging.warning("等待新连接事件超时")
+                logger.warning("等待新连接事件超时")
                 return {
                     "status": "timeout",
                     "message": "等待新连接事件超时",
@@ -317,7 +340,7 @@ async def get_connection_events(ctx: Context, wait_for_new: bool = False, timeou
             "error": None
         }
     except Exception as e:
-        logging.error(f"获取连接事件时发生错误: {str(e)}", exc_info=True)
+        logger.error(f"获取连接事件时发生错误: {str(e)}", exc_info=True)
         return {
             "status": "error",
             "message": f"获取连接事件失败: {str(e)}",
@@ -327,25 +350,42 @@ async def get_connection_events(ctx: Context, wait_for_new: bool = False, timeou
         }
 
 
-@mcp.resource("status://did-wba")
-async def get_status() -> Dict[str, Any]:
-    """Get the current status of the DID WBA server and client.
+@mcp.tool()
+async def clear_connection_events(ctx: Context) -> Dict[str, Any]:
+    """清除所有连接事件"""
+    global connection_events
     
-    Returns:
-        Dict with status information
-    """
-    global server_running, client_running, connection_events
+    # 清除事件
+    event_count = len(connection_events)
+    connection_events.clear()
+    
     return {
+        "status": "success", 
+        "message": f"已清除 {event_count} 个事件",
+        "event_count": 0
+    }
+
+
+@mcp.resource("status://did-wba")
+async def get_status() -> str:
+    """获取DID WBA服务器和客户端状态"""
+    global connection_events, server_status, connector_running
+    
+    # 创建状态信息
+    status_info = {
         "server": {
-            "running": server_running,
-            "status": {"running": server_running}
+            "running": server_status.is_running(),
+            "status": {"running": server_status.is_running(), "port": server_status.port}
         },
         "client": {
-            "running": client_running,
-            "status": {"running": client_running}
+            "running": connector_running,
+            "status": {"running": connector_running}
         },
         "connection_events_count": len(connection_events)
     }
+    
+    # 返回JSON字符串
+    return json.dumps(status_info)
 
 
 def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlette:
@@ -367,13 +407,15 @@ def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlett
     return Starlette(
         debug=debug,
         routes=[
+            Route("/", endpoint=lambda request: PlainTextResponse("DID WBA MCP SSE Server")),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
         ],
     )
 
 
-if __name__ == "__main__":
+def main():
+    """Run the MCP SSE server."""
     # 获取底层MCP服务器
     mcp_server = mcp._mcp_server
 
@@ -381,8 +423,11 @@ if __name__ == "__main__":
     starlette_app = create_starlette_app(mcp_server, debug=True)
 
     port = 8080
-    print(f"Starting MCP server with SSE transport on port {port}...")
-    print(f"SSE endpoint available at: http://localhost:{port}/sse")
+    logger.info(f"Starting MCP SSE server on port {port}...")
+    logger.info(f"SSE endpoint available at: http://localhost:{port}/sse")
+    # 使用uvicorn运行MCP SSE服务器
+    uvicorn.run(starlette_app, host="0.0.0.0", port=8080)
 
-    # 使用uvicorn运行服务器
-    uvicorn.run(starlette_app, host="0.0.0.0", port=port)
+
+if __name__ == "__main__":
+    main()
