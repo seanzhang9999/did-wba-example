@@ -21,8 +21,24 @@
             "anp-network-endpoint": {
             "url": "http://localhost:8080/sse"
                 }
-            }
-        }
+        "DID WBA MCP Server": {
+            "command": "/Users/seanzhang/miniconda3/bin/uv",
+            "args": [
+              "run",
+              "--with",
+              "mcp[cli]",
+              "mcp",
+              "run",
+              "~/seanwork/did-wba-example/anp_mcpwrapper/mcp_stdio_server.py"
+            ],
+            "env": {
+              "VIRTUAL_ENV": "~/seanwork/did-wba-example/.venv",
+              "PATH": "~/seanwork/did-wba-example/.venv/bin:$PATH"
+              },
+         }
+      }
+    }
+        
 ```
 4. 点击"保存配置"按钮
 

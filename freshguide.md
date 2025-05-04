@@ -257,8 +257,3 @@ poetry install
   - 安装最新版 [Microsoft Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe)（根据系统架构选择 x86/x64）。
 
 
-
-
-
-  mcp dev mcp_integration/server/mcp_stdio_server.py  
-  
