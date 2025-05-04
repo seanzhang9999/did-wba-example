@@ -9,9 +9,9 @@
             "name": "mcp-debug-stdio-server",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/anp_mcpwrapper/mcp_stdio_server.py",
+            "program": "${workspaceFolder}/anp_mcpwrapper/mcp_stdio_client.py",
             "console": "integratedTerminal",
-            "justMyCode": false,
+            "justMyCode": true,
             "preLaunchTask": "activate-venv"
         },
         {

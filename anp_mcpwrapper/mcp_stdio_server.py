@@ -316,6 +316,39 @@ async def get_connection_events(ctx: Context, wait_for_new: bool = False, timeou
         }
 
 
+@mcp.tool()
+async def clear_connection_events(ctx: Context) -> Dict[str, Any]:
+    """清除DID WBA服务器的连接事件列表。
+    
+    Returns:
+        Dict with operation status information
+    """
+    global connection_events
+
+    try:
+        # 清空连接事件列表
+        connection_events.clear()
+        
+        # 更新应用上下文
+        app_context = ctx.request_context.lifespan_context
+        app_context.connection_events = connection_events
+        
+        return {
+            "status": "success",
+            "message": "连接事件已清除",
+            "events_number": 0,
+            "error": None
+        }
+    except Exception as e:
+        logger.error(f"清除连接事件时发生错误: {str(e)}", exc_info=True)
+        return {
+            "status": "error",
+            "message": f"清除连接事件失败: {str(e)}",
+            "events_number": len(connection_events),
+            "error": str(e)
+        }
+
+
 @mcp.resource("status://did-wba")
 async def get_status() -> Dict[str, Any]:
     """Get the current status of the DID WBA server and client.
