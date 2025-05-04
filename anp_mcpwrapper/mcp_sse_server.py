@@ -16,14 +16,14 @@ from loguru import logger
 from mcp.server.fastmcp import FastMCP, Context
 
 # Import DID WBA server and client functions
-from did_core.server.server import (
+from anp_core.server.server import (
     ANP_resp_start,
     ANP_resp_stop,
     server_status,
     # server_running,  # 不再直接使用全局变量
 )
 
-from did_core.client.client import (
+from anp_core.client.client import (
     ANP_connector_start,
     ANP_connector_stop,
     connector_running,
@@ -256,7 +256,7 @@ async def start_did_client(ctx: Context, port: Optional[int] = None, unique_id: 
     client_new_message_event.clear()
     
     # Start the client - 在单独的线程中运行run_client
-    from did_core.client.client import run_connector
+    from anp_core.client.client import run_connector
     import threading
     client_thread = threading.Thread(target=run_connector, args=(unique_id, message))
     client_thread.daemon = True

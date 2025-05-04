@@ -95,7 +95,7 @@ def ANP_resp_start(port=None):
     try:
         # 创建uvicorn配置
         config = uvicorn.Config(
-            "did_core.server.server:app",
+            "anp_core.server.server:app",
             host=settings.HOST,
             port=settings.PORT,
             reload=settings.DEBUG,

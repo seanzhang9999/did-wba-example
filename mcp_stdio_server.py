@@ -23,8 +23,8 @@ from loguru import logger
 from mcp.server.fastmcp import FastMCP, Context
 
 # Import DID WBA server and client functions
-from did_core.server.server import ANP_resp_start, ANP_resp_stop, server_status
-from did_core.client.client import ANP_connector_start, ANP_connector_stop, connector_running, client_chat_messages, client_new_message_event
+from anp_core.server.server import ANP_resp_start, ANP_resp_stop, server_status
+from anp_core.client.client import ANP_connector_start, ANP_connector_stop, connector_running, client_chat_messages, client_new_message_event
 
 # Import server-side message handling
 from api.anp_nlp_router import anp_nlp_resp_messages, anp_nlp_resp_new_message_event as server_new_message_event

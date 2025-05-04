@@ -23,10 +23,10 @@ from agent_connect.authentication import (
     DIDWbaAuthHeader
 )
 
-from did_core.auth.custom_did_resolver import resolve_local_did_document
+from anp_core.auth.custom_did_resolver import resolve_local_did_document
 
 from core.config import settings
-from did_core.auth.token_auth import create_access_token
+from anp_core.auth.token_auth import create_access_token
 
 # 存储服务端生成的nonce
 VALID_SERVER_NONCES: Dict[str, datetime] = {}

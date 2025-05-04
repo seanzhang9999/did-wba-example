@@ -16,7 +16,7 @@ from typing import Dict, Any, Optional, Tuple
 from loguru import logger
 
 from core.config import settings
-from did_core.auth.did_auth import (
+from anp_core.auth.did_auth import (
     generate_or_load_did, 
     send_authenticated_request,
     send_request_with_token,

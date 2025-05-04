@@ -107,7 +107,8 @@ async def run_client_session(streams):
             "start_did_client",
             {"message": "你好，这是通过 MCP 客户端发送的测试消息"}
         )
-        logger.info(f"10. 客户端启动结果: {get_text_content_data(client_result.content)}")
+        # logger.info(f"10. 客户端启动结果: {get_text_content_data(client_result.content)}")
+        logger.info(f"10. 客户端启动结果: {client_result.content}")
 
         # 等待1秒确保客户端初始化完成
         await asyncio.sleep(1)
@@ -132,12 +133,12 @@ async def run_client_session(streams):
             # return
 
         logger.info("11. 等待并获取连接事件...")
-        for i in range(3):  # 尝试获取3次事件
+        for i in range(5):  # 尝试获取3次事件
             logger.info(f"12. 第{i + 1}次尝试获取事件...")
             try:
                 events = await session.call_tool(
                     "get_connection_events",
-                    {"wait_for_new": True, "timeout": 1}  # 缩短超时时间
+                    {"wait_for_new": True, "timeout": 5}  # 缩短超时时间
                 )
                 events_data = get_text_content_data(events.content)
 

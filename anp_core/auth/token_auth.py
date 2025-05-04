@@ -8,7 +8,7 @@ import jwt
 from fastapi import HTTPException
 
 from core.config import settings
-from did_core.auth.jwt_keys import get_jwt_public_key, get_jwt_private_key
+from anp_core.auth.jwt_keys import get_jwt_public_key, get_jwt_private_key
 
 
 def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -> str:

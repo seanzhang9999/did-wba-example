@@ -30,8 +30,8 @@ from loguru import logger
 from mcp.server.fastmcp import FastMCP, Context
 
 # Import DID WBA server and client functions
-from did_core.server.server import ANP_resp_start, ANP_resp_stop, server_status
-from did_core.client.client import ANP_connector_start, ANP_connector_stop, connector_running, client_chat_messages, client_new_message_event, ANP_req_auth, ANP_req_chat
+from anp_core.server.server import ANP_resp_start, ANP_resp_stop, server_status
+from anp_core.client.client import ANP_connector_start, ANP_connector_stop, connector_running, client_chat_messages, client_new_message_event, ANP_req_auth, ANP_req_chat
 
 # Import settings for server configuration
 from core.config import settings
@@ -233,7 +233,7 @@ async def start_did_client(ctx: Context, port: Optional[int] = None, unique_id: 
         return {"status": "already_running", "message": "客户端已经在运行中"}
     
     # Start the client
-    ANP_connector_start(port=port, unique_id_arg=unique_id, silent=False, from_chat=False, msg=message)
+    ANP_connector_start(port=port, unique_id=unique_id,message=message)
     
     # Update app context
     app_context.client_status = {"running": True, "port": port, "unique_id": unique_id}

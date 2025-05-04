@@ -22,13 +22,13 @@ from api.anp_nlp_router import (
 )
 from core.app import create_app
 from core.config import settings
-from did_core.auth.did_auth import (
+from anp_core.auth.did_auth import (
     DIDWbaAuthHeader,
     generate_or_load_did,
     send_authenticated_request,
     send_request_with_token,
 )
-from did_core.client.client import (
+from anp_core.client.client import (
     ANP_connector_start as core_start_client,
     ANP_connector_stop,
     ANP_req_auth,
@@ -37,7 +37,7 @@ from did_core.client.client import (
     client_new_message_event as core_client_new_message_event,
     connector_running as core_client_running,
 )
-from did_core.server.server import ANP_resp_start, ANP_resp_stop, server_status
+from anp_core.server.server import ANP_resp_start, ANP_resp_stop, server_status
 from utils.log_base import set_log_color_level
 
 # 全局变量，用于存储最新的聊天消息
