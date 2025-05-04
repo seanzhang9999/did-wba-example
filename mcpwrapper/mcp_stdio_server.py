@@ -4,18 +4,32 @@ This module implements a Model Context Protocol (MCP) server that exposes
 the DID WBA client and server functionalities as MCP tools.
 """
 import os
+import sys
 import asyncio
 import logging
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from mcp.server.sse import SseServerTransport
+from mcp.server import Server
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.routing import Mount, Route
+import uvicorn
+
+# 添加项目根目录到 Python 路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)  # 获取上级目录
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+    print(f"已添加项目根目录到 Python 路径: {project_root}")
 
 from loguru import logger
+# 导入 FastMCP
 from mcp.server.fastmcp import FastMCP, Context
 
 # Import DID WBA server and client functions
-# 修改导入语句，从did_server改为did_core中的相应模块
 from did_core.server.server import start_server, stop_server, server_status
 from did_core.client.client import start_client, stop_client, client_running, client_chat_messages, client_new_message_event
 
@@ -130,9 +144,8 @@ async def connection_event_listener(app_context: AppContext):
             logging.error(f"Error in connection event listener: {e}")
             await asyncio.sleep(1)  # 出错后等待一段时间再重试
 
-
 @mcp.tool()
-async def start_did_server(ctx: Context, port: Optional[int] = None) -> Dict[str, Any]:
+def start_did_server(ctx: Context, port: Optional[int] = None) -> Dict[str, Any]:
     """Start the DID WBA server.
     
     Args:
@@ -141,9 +154,10 @@ async def start_did_server(ctx: Context, port: Optional[int] = None) -> Dict[str
     Returns:
         Dict with server status information
     """
+    global server_status
     app_context = ctx.request_context.lifespan_context
     
-    # 检查服务器是否已经在运行
+    # Check if server is already running
     if server_status.is_running():
         return {"status": "already_running", "message": "服务器已经在运行中"}
 
@@ -151,6 +165,9 @@ async def start_did_server(ctx: Context, port: Optional[int] = None) -> Dict[str
         logger.info(f"Starting DID WBA server on port {port if port else 'default'}")
         if not start_server(port=port):  # 检查启动返回值
             raise RuntimeError("服务器启动失败")
+
+        # 服务器已经启动，不需要等待状态更新
+        # server_status对象会在start_server函数中自动更新状态
 
         app_context.server_status = {"running": True, "port": port}
         return {
@@ -176,14 +193,14 @@ async def stop_did_server(ctx: Context) -> Dict[str, Any]:
     """
     app_context = ctx.request_context.lifespan_context
     
-    # 检查服务器是否在运行
+    # Check if server is running
     if not server_status.is_running():
         return {"status": "not_running", "message": "服务器未运行"}
     
-    # 停止服务器
+    # Stop the server
     stop_server()
     
-    # 更新app context
+    # Update app context
     app_context.server_status = {"running": False, "port": None}
     
     return {
@@ -191,7 +208,6 @@ async def stop_did_server(ctx: Context) -> Dict[str, Any]:
         "message": "服务器已关闭",
         "is_running": False
     }
-
 
 @mcp.tool()
 async def start_did_client(ctx: Context, port: Optional[int] = None, unique_id: Optional[str] = None,
@@ -206,25 +222,18 @@ async def start_did_client(ctx: Context, port: Optional[int] = None, unique_id: 
     Returns:
         Dict with client status information
     """
-    global client_running, client_chat_messages
+    global client_running
 
     app_context = ctx.request_context.lifespan_context
     
-    # 检查客户端是否已经在运行
+    # Check if client is already running
     if client_running:
         return {"status": "already_running", "message": "客户端已经在运行中"}
     
-    # 清除事件和消息列表
-    client_chat_messages = []
+    # Start the client
+    start_client(port=port, unique_id_arg=unique_id, silent=False, from_chat=False, msg=message)
     
-    # 在单独的线程中运行客户端
-    from did_core.client.client import run_client
-    import threading
-    client_thread = threading.Thread(target=run_client, args=(port, message, unique_id))
-    client_thread.daemon = True
-    client_thread.start()
-    
-    # 更新app context
+    # Update app context
     app_context.client_status = {"running": True, "port": port, "unique_id": unique_id}
     
     return {
@@ -233,6 +242,30 @@ async def start_did_client(ctx: Context, port: Optional[int] = None, unique_id: 
         "is_running": True
     }
 
+@mcp.tool()
+async def stop_did_client(ctx: Context) -> Dict[str, Any]:
+    """Stop the DID WBA client.
+    
+    Returns:
+        Dict with client status information
+    """
+    app_context = ctx.request_context.lifespan_context
+    
+    # Check if client is running
+    if not client_running:
+        return {"status": "not_running", "message": "客户端未运行"}
+    
+    # Stop the client
+    stop_client()
+    
+    # Update app context
+    app_context.client_status = {"running": False, "port": None, "unique_id": None}
+    
+    return {
+        "status": "success",
+        "message": "客户端已关闭",
+        "is_running": False
+    }
 
 @mcp.tool()
 async def get_connection_events(ctx: Context, wait_for_new: bool = False, timeout: int = 300) -> Dict[str, Any]:
@@ -249,10 +282,10 @@ async def get_connection_events(ctx: Context, wait_for_new: bool = False, timeou
 
     try:
         if wait_for_new:
-            # 等待新连接事件，设置超时
+            # Wait for new connection event with timeout
             try:
                 await asyncio.wait_for(new_connection_event.wait(), timeout=timeout)
-                # 重置事件，以便下次通知
+                # Reset event for next notification
                 new_connection_event.clear()
             except asyncio.TimeoutError:
                 logging.warning("等待新连接事件超时")
@@ -281,76 +314,6 @@ async def get_connection_events(ctx: Context, wait_for_new: bool = False, timeou
         }
 
 
-@mcp.tool()
-async def stop_did_client(ctx: Context) -> Dict[str, Any]:
-    """Stop the DID WBA client.
-    
-    Returns:
-        Dict with client status information
-    """
-    app_context = ctx.request_context.lifespan_context
-    
-    # 检查客户端是否在运行
-    if not client_running:
-        return {"status": "not_running", "message": "客户端未运行"}
-    
-    # 停止客户端
-    stop_client()
-    
-    # 更新app context
-    app_context.client_status = {"running": False, "port": None, "unique_id": None}
-    
-    return {
-        "status": "success",
-        "message": "客户端已关闭",
-        "is_running": False
-    }
-
-
-@mcp.tool()
-async def clear_connection_events(ctx: Context) -> Dict[str, Any]:
-    """Clear connection events.
-    
-    Returns:
-        Dict with operation status
-    """
-    global connection_events
-    app_context = ctx.request_context.lifespan_context
-    
-    # 清除事件
-    connection_events = []
-    app_context.connection_events = []
-    
-    return {"status": "success", "message": "连接事件已清除"}
-
-
-@mcp.tool()
-async def send_message(ctx: Context, message: str) -> Dict[str, Any]:
-    """Send a message through the DID WBA client.
-    
-    Args:
-        message: The message to send
-        
-    Returns:
-        Dict with message sending status
-    """
-    app_context = ctx.request_context.lifespan_context
-    
-    # 检查客户端是否在运行
-    if not client_running:
-        return {"status": "error", "message": "客户端未运行，无法发送消息", "is_running": False}
-    
-    # 在单独的线程中运行run_client发送消息
-    from did_core.client.client import run_client
-    import threading
-    client_thread = threading.Thread(target=run_client, args=(None, message))
-    client_thread.daemon = True
-    client_thread.start()
-    
-    app_context.client_status = {"running": True, "port": None}
-    return {"status": "success", "message": "消息已发送", "is_running": True}
-
-
 @mcp.resource("status://did-wba")
 async def get_status() -> Dict[str, Any]:
     """Get the current status of the DID WBA server and client.
@@ -358,6 +321,7 @@ async def get_status() -> Dict[str, Any]:
     Returns:
         Dict with status information
     """
+    global server_status, client_running, connection_events
     return {
         "server": {
             "running": server_status.is_running(),
@@ -371,10 +335,89 @@ async def get_status() -> Dict[str, Any]:
     }
 
 
-def main():
-    """启动MCP服务器"""
-    mcp.run(transport='stdio')  # 明确指定使用stdio传输方式
+def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlette:
+    """创建支持SSE的Starlette应用"""
+    sse = SseServerTransport("/messages/")
 
+    async def handle_sse(request: Request) -> None:
+        async with sse.connect_sse(
+                request.scope,
+                request.receive,
+                request._send,
+        ) as (read_stream, write_stream):
+            await mcp_server.run(
+                read_stream,
+                write_stream,
+                mcp_server.create_initialization_options(),
+            )
+
+    return Starlette(
+        debug=debug,
+        routes=[
+            Route("/sse", endpoint=handle_sse),
+            Mount("/messages/", app=sse.handle_post_message),
+        ],
+    )
+
+
+import argparse
+
+def run_mcp_server():
+    """Run the MCP server."""
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='启动 MCP 服务器')
+    parser.add_argument('--transport', '-t', type=str, choices=['stdio', 'sse'], default='stdio',
+                        help='选择传输模式: stdio (默认) 或 sse')
+    args = parser.parse_args()
+    # 从args对象中正确获取transport参数值
+    transport = args.transport
+    
+    # Install the MCP server for development
+    import sys
+    
+    # 检查是否需要启用调试
+    enable_debug = os.environ.get("ENABLE_DEBUGPY", "False").lower() == "true"
+    
+    if enable_debug:
+        try:
+            import debugpy
+            # 允许其他客户端连接到调试器
+            debugpy.listen(("0.0.0.0", 5678))
+            print("调试器已启动，监听端口5678。您可以在VSCode中使用'Attach to Running MCP Server'配置连接到此进程。")
+            # 如果需要等待调试器连接，取消下面这行的注释
+            # debugpy.wait_for_client()
+        except ImportError:
+            print("警告: 无法导入debugpy模块，调试功能将被禁用")
+            print("如需启用调试，请运行: pip install debugpy")
+    
+    try:
+        # 尝试直接启动MCP服务器，而不是使用MCP CLI
+        print(f"正在直接启动MCP服务器 (传输模式: {transport})...")
+    
+        # 使用FastMCP的run方法启动服务器
+        if args.transport == 'stdio':
+            print("使用 stdio 传输模式启动服务器")
+            mcp.run(transport='stdio')
+        else:
+            # 设置HTTP服务器端口 - 仅在sse模式下需要
+            # 获取底层MCP服务器
+            mcp_server = mcp._mcp_server
+
+            # 创建支持SSE的Starlette应用
+            starlette_app = create_starlette_app(mcp_server, debug=True)
+            port = 8080
+            print(f"Starting MCP server with SSE transport on port {port}...")
+            print(f"SSE endpoint available at: http://localhost:{port}/sse")
+
+            # 使用uvicorn运行服务器
+            uvicorn.run(starlette_app, host="0.0.0.0", port=port)
+
+    except ImportError as e:
+        print(f"错误: 导入MCP模块失败: {e}")
+        print("请运行以下命令安装必要的依赖:")
+        print("python -m pip install --upgrade mcp")
+        print("\n安装完成后，再次运行此脚本")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    main()
+    run_mcp_server()

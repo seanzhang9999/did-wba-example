@@ -4,6 +4,7 @@ This module implements a Model Context Protocol (MCP) server that exposes
 the DID WBA client and server functionalities as MCP tools.
 """
 import os
+import sys
 import asyncio
 import logging
 from typing import Dict, Any, Optional, List
@@ -11,7 +12,14 @@ from dataclasses import dataclass
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
+# 添加当前目录到 Python 路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+    print(f"已添加当前目录到 Python 路径: {current_dir}")
+
 from loguru import logger
+# 导入 FastMCP
 from mcp.server.fastmcp import FastMCP, Context
 
 # Import DID WBA server and client functions
