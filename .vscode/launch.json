@@ -4,6 +4,17 @@
     // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
+        {
+            "name": "mcp-debug-llmagent",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/anp_llmagent.py",
+            "args": "${command:pickArgs}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "preLaunchTask": "activate-venv"
+        },
         
         {
             "name": "mcp-debug-stdio-server",
@@ -19,6 +30,16 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/anp_mcpwrapper/mcp_stdio_server.py",
+            "args": "${command:pickArgs}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "preLaunchTask": "activate-venv"
+        },
+        {
+            "name": "mcp-debug-llmapp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/anp_llmapp.py",
             "args": "${command:pickArgs}",
             "console": "integratedTerminal",
             "justMyCode": false,

@@ -39,6 +39,7 @@ async def request_openrouter(message: str, did: str, requestport: str = None) ->
         await notify_chat_thread(message_data, did)
         return 500, {"answer": error_msg}
         
+    
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
@@ -64,8 +65,10 @@ async def request_openrouter(message: str, did: str, requestport: str = None) ->
                 return resp.status_code, {"answer": error_msg}
                 
             data = resp.json()
-            answer = data['choices'][0]['message']['content']
-            
+            agentname = os.environ.get('AGENT_NAME')  
+            answer = agentname + ":"+data['choices'][0]['message']['content']
+
+
             # 添加消息到全局消息列表，并通知聊天线程
             message_data = {
                 "type": "anp_nlp",
@@ -74,6 +77,7 @@ async def request_openrouter(message: str, did: str, requestport: str = None) ->
             }
             await notify_chat_thread(message_data, did)
             
+
             return 200, {"answer": answer}
     except Exception as e:
         error_msg = f"白嫖的OpenRouter生气了:{e}"

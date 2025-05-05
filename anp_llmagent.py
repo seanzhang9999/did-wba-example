@@ -6,11 +6,13 @@ providing access to both client and server functionalities.
 import argparse
 import sys
 import os
+import json
+import datetime
 
 from loguru import logger
 
 # 导入服务器和客户端功能
-from anp_core.server.server import ANP_resp_start, ANP_resp_stop, server_running
+from anp_core.server.server import ANP_resp_start, ANP_resp_stop, server_status
 from anp_core.client.client import ANP_connector_start, ANP_connector_stop, connector_running, client_chat_messages, client_new_message_event
 
 # 从API模块导入服务器端消息处理
@@ -36,6 +38,11 @@ def main():
     client_parser.add_argument("-p", "--port", type=int, help="目标服务器端口号")
     client_parser.add_argument("-i", "--id", type=str, help="客户端唯一标识符")
     client_parser.add_argument("-m", "--message", type=str, help="要发送的消息")
+    
+    # 智能体命令
+    agent_parser = subparsers.add_parser("agent", help="启动智能体并配置对应的DID")
+    agent_parser.add_argument("-u", "--name", type=str, required=True, help="智能体名称")
+    agent_parser.add_argument("-p", "--port", type=int, help="服务器端口号")
     
     # 解析命令行参数
     args = parser.parse_args()
@@ -74,6 +81,72 @@ def main():
             print("客户端已停止")
         else:
             print("客户端启动失败")
+            sys.exit(1)
+    
+    elif args.command == "agent":
+        # 启动智能体
+        print(f"正在启动智能体 '{args.name}'...")
+        # 设置环境变量，用于标识智能体名称
+        os.environ['AGENT_NAME'] = args.name
+        
+        # 检查智能体配置文件
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        agent_config_dir = os.path.join(base_dir, "anp_core", "anp_agents")
+        os.makedirs(agent_config_dir, exist_ok=True)
+        agent_config_file = os.path.join(agent_config_dir, f"{args.name}.js")
+        
+        # 导入必要的模块
+        from anp_core.auth.did_auth import generate_or_load_did
+        import asyncio
+        
+        # 检查是否存在智能体配置文件
+        if os.path.exists(agent_config_file):
+            # 读取已有的配置文件
+            print(f"找到智能体配置文件: {agent_config_file}")
+            with open(agent_config_file, 'r', encoding='utf-8') as f:
+                config_data = json.loads(f.read())
+                did = config_data.get('did')
+                user_dir = config_data.get('user_dir')
+                print(f"使用已有智能体DID: {did}")
+        else:
+            # 生成或加载智能体的DID
+            from anp_core.auth.did_auth import generate_or_load_did
+            import asyncio
+            
+            # 使用智能体名称作为唯一标识符
+            did_document, keys, base_dir = asyncio.run(generate_or_load_did())
+            did = did_document.get('id')
+            print(f"生成新的智能体DID: {did}")
+            
+            # 保存智能体配置到文件
+            config_data = {
+                'name': args.name,
+                'did': did,
+                'user_dir': base_dir,
+                'created_at': datetime.datetime.now().isoformat()
+            }
+            with open(agent_config_file, 'w', encoding='utf-8') as f:
+                f.write(json.dumps(config_data, indent=2))
+            print(f"已保存智能体配置到: {agent_config_file}")
+        
+        # 设置DID相关环境变量
+        os.environ['AGENT_DID'] = did
+        os.environ['AGENT_DID_DIR'] = base_dir
+        
+        # 启动服务器
+        if ANP_resp_start(port=args.port):
+            print(f"智能体服务器已启动，按Ctrl+C停止")
+            try:
+                # 保持主线程运行，直到用户按Ctrl+C
+                import time
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                print("\n正在停止智能体服务器...")
+                ANP_resp_stop()
+                print("智能体服务器已停止")
+        else:
+            print("智能体服务器启动失败")
             sys.exit(1)
     
     else:

@@ -396,6 +396,9 @@ async def _chat_to_ANP_impl(custom_msg, token=None, unique_id_arg=None):
     try:
         target_host = settings.TARGET_SERVER_HOST
         target_port = settings.TARGET_SERVER_PORT
+        if os.environ.get('target-port'):
+            target_port = os.environ.get('TARGET_SERVER_HOST')
+
         base_url = f"http://{target_host}:{target_port}"
         
         if not token:
@@ -476,9 +479,12 @@ async def run_chat():
                     break
                 
                 # 处理特殊命令 @anp-bot
-                if user_msg.strip().startswith("@anp-bot"):
+                if user_msg.strip().startswith("@anp:"):
                     # 支持 @anp-bot 后跟一句自定义消息
                     parts = user_msg.strip().split(" ", 1)
+                    ports = user_msg.strip().split(" ", 0) 
+                    ports = ports.strip().split(":", 0)
+                    os.environ['target-port'] = ports[1]
                     custom_msg = "ANPbot的问候，请二十字内回复我"
                     if len(parts) > 1 and parts[1].strip():
                         custom_msg = parts[1].strip()
