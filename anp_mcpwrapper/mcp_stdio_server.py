@@ -23,7 +23,11 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)  # 获取上级目录
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-    print(f"已添加项目根目录到 Python 路径: {project_root}")
+    # 这里不能直接使用printmute，因为函数还未定义
+    # 我们将在run_mcp_server函数中处理这个打印
+    _print_path_added = True
+else:
+    _print_path_added = False
 
 from loguru import logger
 # 导入 FastMCP
@@ -395,7 +399,16 @@ def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlett
     )
 
 
-import argparse
+# 添加printmute函数在文件开头部分
+def printmute(message, enable_print = False):
+    """打印函数，当enable_print为False时不打印任何内容。
+    
+    Args:
+        message: 要打印的消息
+        enable_print: 是否启用打印，默认为True
+    """
+    if enable_print:
+        print(message)
 
 def run_mcp_server():
     """Run the MCP server."""
@@ -403,9 +416,18 @@ def run_mcp_server():
     parser = argparse.ArgumentParser(description='启动 MCP 服务器')
     parser.add_argument('--transport', '-t', type=str, choices=['stdio', 'sse'], default='stdio',
                         help='选择传输模式: stdio (默认) 或 sse')
+    parser.add_argument('--print', action='store_true', default=False,
+                        help='启用打印输出，默认为False')
     args = parser.parse_args()
-    # 从args对象中正确获取transport参数值
+    # 从args对象中正确获取参数值
     transport = args.transport
+    enable_print = args.print
+    
+    # 处理之前添加项目根目录到Python路径时的打印
+    global _print_path_added
+    if _print_path_added:
+        printmute(f"已添加项目根目录到 Python 路径: {project_root}", enable_print)
+        _print_path_added = False
     
     # Install the MCP server for development
     import sys
@@ -418,20 +440,20 @@ def run_mcp_server():
             import debugpy
             # 允许其他客户端连接到调试器
             debugpy.listen(("0.0.0.0", 5678))
-            print("调试器已启动，监听端口5678。您可以在VSCode中使用'Attach to Running MCP Server'配置连接到此进程。")
+            printmute("调试器已启动，监听端口5678。您可以在VSCode中使用'Attach to Running MCP Server'配置连接到此进程。", enable_print)
             # 如果需要等待调试器连接，取消下面这行的注释
             # debugpy.wait_for_client()
         except ImportError:
-            print("警告: 无法导入debugpy模块，调试功能将被禁用")
-            print("如需启用调试，请运行: pip install debugpy")
+            printmute("警告: 无法导入debugpy模块，调试功能将被禁用", enable_print)
+            printmute("如需启用调试，请运行: pip install debugpy", enable_print)
     
     try:
         # 尝试直接启动MCP服务器，而不是使用MCP CLI
-        print(f"正在直接启动MCP服务器 (传输模式: {transport})...")
+        # printmute(f"正在直接启动MCP服务器 (传输模式: {transport})...", enable_print)
     
         # 使用FastMCP的run方法启动服务器
         if args.transport == 'stdio':
-            print("使用 stdio 传输模式启动服务器")
+            # printmute("使用 stdio 传输模式启动服务器", enable_print)
             mcp.run(transport='stdio')
         else:
             # 设置HTTP服务器端口 - 仅在sse模式下需要
@@ -441,17 +463,17 @@ def run_mcp_server():
             # 创建支持SSE的Starlette应用
             starlette_app = create_starlette_app(mcp_server, debug=True)
             port = 8080
-            print(f"Starting MCP server with SSE transport on port {port}...")
-            print(f"SSE endpoint available at: http://localhost:{port}/sse")
+            printmute(f"Starting MCP server with SSE transport on port {port}...", enable_print)
+            printmute(f"SSE endpoint available at: http://localhost:{port}/sse", enable_print)
 
             # 使用uvicorn运行服务器
             uvicorn.run(starlette_app, host="0.0.0.0", port=port)
 
     except ImportError as e:
-        print(f"错误: 导入MCP模块失败: {e}")
-        print("请运行以下命令安装必要的依赖:")
-        print("python -m pip install --upgrade mcp")
-        print("\n安装完成后，再次运行此脚本")
+        printmute(f"错误: 导入MCP模块失败: {e}", enable_print)
+        printmute("请运行以下命令安装必要的依赖:", enable_print)
+        printmute("python -m pip install --upgrade mcp", enable_print)
+        printmute("\n安装完成后，再次运行此脚本", enable_print)
         sys.exit(1)
 
 @mcp.tool()
@@ -535,20 +557,20 @@ def run_mcp_server():
             import debugpy
             # 允许其他客户端连接到调试器
             debugpy.listen(("0.0.0.0", 5678))
-            print("调试器已启动，监听端口5678。您可以在VSCode中使用'Attach to Running MCP Server'配置连接到此进程。")
+            printmute("调试器已启动，监听端口5678。您可以在VSCode中使用'Attach to Running MCP Server'配置连接到此进程。")
             # 如果需要等待调试器连接，取消下面这行的注释
             # debugpy.wait_for_client()
         except ImportError:
-            print("警告: 无法导入debugpy模块，调试功能将被禁用")
-            print("如需启用调试，请运行: pip install debugpy")
+            printmute("警告: 无法导入debugpy模块，调试功能将被禁用")
+            printmute("如需启用调试，请运行: pip install debugpy")
     
     try:
         # 尝试直接启动MCP服务器，而不是使用MCP CLI
-        print(f"正在直接启动MCP服务器 (传输模式: {transport})...")
+        printmute(f"正在直接启动MCP服务器 (传输模式: {transport})...")
     
         # 使用FastMCP的run方法启动服务器
         if args.transport == 'stdio':
-            print("使用 stdio 传输模式启动服务器")
+            printmute("使用 stdio 传输模式启动服务器")
             mcp.run(transport='stdio')
         else:
             # 设置HTTP服务器端口 - 仅在sse模式下需要
@@ -558,17 +580,17 @@ def run_mcp_server():
             # 创建支持SSE的Starlette应用
             starlette_app = create_starlette_app(mcp_server, debug=True)
             port = 8080
-            print(f"Starting MCP server with SSE transport on port {port}...")
-            print(f"SSE endpoint available at: http://localhost:{port}/sse")
+            printmute(f"Starting MCP server with SSE transport on port {port}...")
+            printmute(f"SSE endpoint available at: http://localhost:{port}/sse")
 
             # 使用uvicorn运行服务器
             uvicorn.run(starlette_app, host="0.0.0.0", port=port)
 
     except ImportError as e:
-        print(f"错误: 导入MCP模块失败: {e}")
-        print("请运行以下命令安装必要的依赖:")
-        print("python -m pip install --upgrade mcp")
-        print("\n安装完成后，再次运行此脚本")
+        printmute(f"错误: 导入MCP模块失败: {e}")
+        printmute("请运行以下命令安装必要的依赖:")
+        printmute("python -m pip install --upgrade mcp")
+        printmute("\n安装完成后，再次运行此脚本")
         sys.exit(1)
 
 if __name__ == "__main__":
