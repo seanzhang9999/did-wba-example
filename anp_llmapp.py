@@ -397,7 +397,7 @@ async def _chat_to_ANP_impl(custom_msg, token=None, unique_id_arg=None):
         target_host = settings.TARGET_SERVER_HOST
         target_port = settings.TARGET_SERVER_PORT
         if os.environ.get('target-port'):
-            target_port = os.environ.get('TARGET_SERVER_HOST')
+            target_port = os.environ.get('target-port')
 
         base_url = f"http://{target_host}:{target_port}"
         
@@ -419,9 +419,9 @@ async def _chat_to_ANP_impl(custom_msg, token=None, unique_id_arg=None):
                 "status": "success"
             })
             # 修复：确保custom_msg是字符串而不是尝试作为字典访问
-            print(f"\nANP-resp收自@: {custom_msg}")
+            print(f"\n自ANP-rep发出: {custom_msg}")
             # 修复：直接使用response中的answer字段
-            print(f"\nANP-res返回: {response.get('answer', '[无回复]') if isinstance(response, dict) else str(response)}\n")
+            print(f"\n从ANP-resp返回: {response.get('answer', '[无回复]') if isinstance(response, dict) else str(response)}\n")
         else:
             await client_notify_chat_thread({
                 "type": "anp_nlp",
@@ -482,9 +482,9 @@ async def run_chat():
                 if user_msg.strip().startswith("@anp:"):
                     # 支持 @anp-bot 后跟一句自定义消息
                     parts = user_msg.strip().split(" ", 1)
-                    ports = user_msg.strip().split(" ", 0) 
-                    ports = ports.strip().split(":", 0)
-                    os.environ['target-port'] = ports[1]
+                    port = parts[0].strip().split(":", 1)
+                    os.environ['target-port'] = port[1]
+                    port = port[1]
                     custom_msg = "ANPbot的问候，请二十字内回复我"
                     if len(parts) > 1 and parts[1].strip():
                         custom_msg = parts[1].strip()
