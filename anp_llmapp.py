@@ -418,10 +418,6 @@ async def _chat_to_ANP_impl(custom_msg, token=None, unique_id_arg=None):
                 "assistant_message": response.get('answer', '[无回复]') if isinstance(response, dict) else str(response),
                 "status": "success"
             })
-            # 修复：确保custom_msg是字符串而不是尝试作为字典访问
-            print(f"\n自ANP-rep发出: {custom_msg}")
-            # 修复：直接使用response中的answer字段
-            print(f"\n从ANP-resp返回: {response.get('answer', '[无回复]') if isinstance(response, dict) else str(response)}\n")
         else:
             await client_notify_chat_thread({
                 "type": "anp_nlp",
@@ -465,7 +461,7 @@ async def run_chat():
         }
         
         print("\n已启动LLM聊天线程。输入消息与AI对话，输入 /q 退出。")
-        print("特殊命令: 输入 @anp-bot 可自动启动客户端执行流程。")
+        print("特殊命令: 输入 @[agent-name]:[msg] 。")
         logging.info("聊天线程启动 - 直接调用OpenRouter API")
         
         # 进入聊天模式
@@ -479,24 +475,39 @@ async def run_chat():
                     break
                 
                 # 处理特殊命令 @anp-bot
-                if user_msg.strip().startswith("@anp:"):
-                    # 支持 @anp-bot 后跟一句自定义消息
-                    parts = user_msg.strip().split(" ", 1)
-                    port = parts[0].strip().split(":", 1)
-                    os.environ['target-port'] = port[1]
-                    port = port[1]
-                    custom_msg = "ANPbot的问候，请二十字内回复我"
-                    if len(parts) > 1 and parts[1].strip():
-                        custom_msg = parts[1].strip()
-                    print(f"检测到特殊命令 @anp-bot\n将发送消息: {custom_msg}")
-                    chat_running = False
-                    # 获取token，如果环境变量中不存在则使用None
-                    token = os.environ.get('did-token', None)
-                    # 调用send_msg函数发送消息（非阻塞方式）
-                    chat_to_ANP(custom_msg, token, unique_id)
-                    
-                    print("\n客户端执行中，你可以先聊。")
-                    chat_running = True
+                if user_msg.strip().startswith("@") and user_msg.strip().find(":") :
+                    parts = user_msg.strip().split(":", 1)
+                    agentname = parts[0].strip().split("@", 1)
+                    agentname = agentname[1]
+                    bookmark_config_dir = os.path.dirname(os.path.abspath(__file__))
+                    bookmark_config_dir = os.path.join(bookmark_config_dir, "anp_core", "anp_bookmark")
+                    os.makedirs(bookmark_config_dir, exist_ok=True)
+                    bookmark_config_file = os.path.join(bookmark_config_dir, f"{agentname}.js")
+                    if os.path.exists(bookmark_config_file):
+                    # 读取已有的配置文件
+                        print(f"找到智能体书签文件: {bookmark_config_file}")
+                        with open(bookmark_config_file, 'r', encoding='utf-8') as f:
+                            config_data = json.loads(f.read())
+                            agentname = config_data.get('name')
+                            did = config_data.get('did')
+                            url = config_data.get('url')
+                            port = config_data.get('port')
+                        print(f"使用{agentname}智能体DID: {did}地址：{url}端口：{port}通讯")
+                        os.environ['target-port'] = f"{port}"
+                        custom_msg = "ANPbot的问候，请二十字内回复我"
+                        if len(parts) > 1 and parts[1].strip():
+                            custom_msg = parts[1].strip()
+                        print(f"将向智能体{port}发送消息: {custom_msg}")
+                        chat_running = False
+                        # 获取token，如果环境变量中不存在则使用None
+                        token = os.environ.get('did-token', None)
+                        # 调用send_msg函数发送消息（非阻塞方式）
+                        chat_to_ANP(custom_msg, token, unique_id)
+                        
+                        print("\n客户端执行中，你可以先聊。")
+                        chat_running = True
+                    else:
+                        print(f"您要交流的智能体{agentname}不存在，请通过智能体搜索寻找合适的智能体")# 生成或加载智能体的DID
                     continue
                     
                 try:

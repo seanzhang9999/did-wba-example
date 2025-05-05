@@ -17,6 +17,7 @@ from anp_core.client.client import ANP_connector_start, ANP_connector_stop, conn
 
 # 从API模块导入服务器端消息处理
 from api.anp_nlp_router import anp_nlp_resp_messages, anp_nlp_resp_new_message_event as server_new_message_event
+from core.config import settings
 
 # 设置日志
 logger.add("logs/anp_llm.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
@@ -88,10 +89,16 @@ def main():
         print(f"正在启动智能体 '{args.name}'...")
         # 设置环境变量，用于标识智能体名称
         os.environ['AGENT_NAME'] = args.name
+
+        url = settings.HOST
+        port = settings.PORT
+        if args.port:
+            port = args.port
+        
         
         # 检查智能体配置文件
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        agent_config_dir = os.path.join(base_dir, "anp_core", "anp_agents")
+        user_dir = os.path.dirname(os.path.abspath(__file__))
+        agent_config_dir = os.path.join(user_dir, "anp_core", "anp_agents")
         os.makedirs(agent_config_dir, exist_ok=True)
         agent_config_file = os.path.join(agent_config_dir, f"{args.name}.js")
         
@@ -107,6 +114,9 @@ def main():
                 config_data = json.loads(f.read())
                 did = config_data.get('did')
                 user_dir = config_data.get('user_dir')
+                url = config_data.get('url')
+                port = config_data.get('port')
+
                 print(f"使用已有智能体DID: {did}")
         else:
             # 生成或加载智能体的DID
@@ -114,7 +124,7 @@ def main():
             import asyncio
             
             # 使用智能体名称作为唯一标识符
-            did_document, keys, base_dir = asyncio.run(generate_or_load_did())
+            did_document, keys, user_dir = asyncio.run(generate_or_load_did())
             did = did_document.get('id')
             print(f"生成新的智能体DID: {did}")
             
@@ -122,8 +132,10 @@ def main():
             config_data = {
                 'name': args.name,
                 'did': did,
-                'user_dir': base_dir,
-                'created_at': datetime.datetime.now().isoformat()
+                'user_dir': user_dir,
+                'created_at': datetime.datetime.now().isoformat(),
+                'url': url,
+                'port': port,
             }
             with open(agent_config_file, 'w', encoding='utf-8') as f:
                 f.write(json.dumps(config_data, indent=2))
@@ -131,7 +143,11 @@ def main():
         
         # 设置DID相关环境变量
         os.environ['AGENT_DID'] = did
-        os.environ['AGENT_DID_DIR'] = base_dir
+        os.environ['AGENT_DID_DIR'] = user_dir
+        settings.HOST = url
+        settings.PORT = port
+
+
         
         # 启动服务器
         if ANP_resp_start(port=args.port):

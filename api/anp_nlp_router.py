@@ -87,8 +87,8 @@ async def notify_chat_thread(message_data: Dict[str, Any], did: str):
     anp_nlp_resp_new_message_event.set()
     
     # 在控制台显示通知
-    logging.info(f"ANP-resp收到: {message_data['user_message']}")
-    logging.info(f"ANP-resp返回: {message_data['assistant_message']}")
+    # logging.info(f"ANP-resp收到: {message_data['user_message']}")
+    # logging.info(f"ANP-resp返回: {message_data['assistant_message']}")
     
     # 打印到控制台，确保在聊天线程中可见
 

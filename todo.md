@@ -1,6 +1,9 @@
 ## 当前log
 anp_llmagent开发：一条命令创建并启动agent-did
+    需要设计agent-pool
 anp_llmapp开发：一条命令连接agent的过程
+    需要设计llmapp的agent-bookmark
+
 
 ## 计划工作
 
