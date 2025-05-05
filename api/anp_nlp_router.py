@@ -65,36 +65,3 @@ async def anp_nlp_service(
         raise HTTPException(status_code=status_code, detail=response_data["answer"])
         
     return JSONResponse(content=response_data)
-
-
-async def notify_chat_thread(message_data: Dict[str, Any], did: str):
-    """
-    通知聊天线程有新消息
-    
-    Args:
-        message_data: 消息数据
-    """
-    global anp_nlp_resp_messages, anp_nlp_resp_new_message_event
-    
-    # 添加消息到全局列表
-    anp_nlp_resp_messages.append(message_data)
-    
-    # 如果列表太长，保留最近的50条消息
-    if len(anp_nlp_resp_messages) > 50:
-        anp_nlp_resp_messages = anp_nlp_resp_messages[-50:]
-    
-    # 设置事件，通知聊天线程
-    anp_nlp_resp_new_message_event.set()
-    
-    # 在控制台显示通知
-    # logging.info(f"ANP-resp收到: {message_data['user_message']}")
-    # logging.info(f"ANP-resp返回: {message_data['assistant_message']}")
-    
-    # 打印到控制台，确保在聊天线程中可见
-
-    port= os.environ.get("PORT")
-    print(f"\nANP-resp收自@{did}: {message_data['user_message']}")
-    print(f"\nANP-resp从{port}返回: {message_data['assistant_message']}\n")
-    
-    # 注释掉重置事件的代码，让mcp_server.py中的监听器来清除事件
-    # new_message_event.clear()

@@ -66,7 +66,10 @@ async def request_openrouter(message: str, did: str, requestport: str = None) ->
                 
             data = resp.json()
             agentname = os.environ.get('AGENT_NAME')  
-            answer = agentname + ":"+data['choices'][0]['message']['content']
+            if agentname is None:
+                answer = data['choices'][0]['message']['content']
+            else:
+                answer = agentname + ":"+data['choices'][0]['message']['content']
 
 
             # 添加消息到全局消息列表，并通知聊天线程
