@@ -5,10 +5,12 @@ anp_llmapp开发：一条命令连接agent的过程 ok
 修整 anp_llmapp代码 简化llm命令，考虑如何实现 
 1. 用户 在chat中进入和远程agent对话模式，例如 #agent-id 进入远程对话模式
 2. 用户 通过搜索agent 获得适当的远程agent的url存入bookmark
-3. 用户 双向验证远程agent的真实性 考虑简化为消息中附加挑战要求对方agent回复签名验证 两边都能用
+3. 用户 双向验证远程agent的真实性 考虑简化为消息中附加挑战要求对方agent回复签名验证以及中间加密 两边都能用（get post socket） 
 修整 anp_llmagent代码 
 1. 用户问题可以通过agent的思考，连接其他agent，获得答案后转发回来
-2. 用户的问题可以通过agent的思考，发起多方群聊
+2. 用户的问题可以通过agent的思考，发起多方群聊，优先考虑基于http直接做，反正各方都有resp和req，设计对应接口即可
+
+考虑封装 anp_llmagent / anp_llmapp的web前端
 
 
 ## 计划工作

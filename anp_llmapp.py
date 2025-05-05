@@ -70,13 +70,14 @@ async def root():
 
 """
 async def client_example(unique_id: str = None, silent: bool = False, from_chat: bool = False , msg : str = None):
-        Run the client example to demonstrate DID WBA authentication.
+    Run the client example to demonstrate DID WBA authentication.
     
     Args:
         unique_id: Optional unique identifier
         silent: Whether to suppress log output
         from_chat: Whether the call is from chat thread
-    
+        msg: Message to send
+
     if msg is None:
         msg = "ANP客户端的问候，请回复我今天北京的天气"
     try:
@@ -216,13 +217,13 @@ def run_server():
         # 这一行很关键：关闭uvicorn自带的信号处理
         server_instance.install_signal_handlers = lambda: None
         server_running = True
-        core_server_status.set_running(True, port=settings.PORT)  # 同时设置core_server_status
+        server_status.set_running(True, port=settings.PORT)  # 同时设置server_status
         server_instance.run()
     except Exception as e:
         logging.error(f"服务器运行出错: {e}")
     finally:
         server_running = False
-        core_server_status.set_running(False)  # 同时设置core_server_status
+        server_status.set_running(False)  # 同时设置server_status
 """
 
 async def client_notify_chat_thread(message_data: Dict[str, Any]):
@@ -257,14 +258,15 @@ async def client_notify_chat_thread(message_data: Dict[str, Any]):
 
 """
 def run_client(port=None, unique_id_arg=None, silent=False, from_chat=False , msg = None):
-    # 在子线程中运行客户端示例
+    在子线程中运行客户端示例
     
-    # Args:
-    #    port: 可选的目标服务器端口号
-    #    unique_id_arg: 可选的唯一ID
-    #    silent: 是否静默模式（不显示日志）
-    #    from_chat: 是否从聊天线程调用
-    # 
+    Args:
+        port: 可选的目标服务器端口号
+        unique_id_arg: 可选的唯一ID
+        silent: 是否静默模式（不显示日志）
+        from_chat: 是否从聊天线程调用
+        msg: 要发送的消息
+    
     global client_running
     try:
         # 等待2秒确保服务器已启动
@@ -333,14 +335,14 @@ def resp_stop():
 
 """
 def start_anp_request(port=None, unique_id_arg=None, silent=False, from_chat=False, msg=None):
-    # 启动客户端线程
+    启动客户端线程
     
-    # Args:
-    #     port: 可选的目标服务器端口号
-    #     unique_id_arg: 可选的唯一ID
-    #     silent: 是否静默模式（不显示日志）
-    #     from_chat: 是否从聊天线程调用
-    #     msg: 要发送的消息
+    Args:
+        port: 可选的目标服务器端口号
+        unique_id_arg: 可选的唯一ID
+        silent: 是否静默模式（不显示日志）
+        from_chat: 是否从聊天线程调用
+        msg: 要发送的消息
 
     global unique_id
     
