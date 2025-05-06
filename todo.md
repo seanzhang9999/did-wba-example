@@ -16,6 +16,7 @@ anp_llmapp开发：一条命令连接agent的过程 ok
 ## 计划工作
 
 anp_llmagent 搭建
+    封装更好的接口 方便各种agent框架集成——尤其是消息事件
     支持anp双向验证did 建立加密通道/多方wschat
     支持mcp接口调用本地功能对外anp服务
     支持动态开放多个anp能力接口
