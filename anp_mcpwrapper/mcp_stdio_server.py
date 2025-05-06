@@ -46,7 +46,7 @@ from api.anp_nlp_router import anp_nlp_resp_messages, anp_nlp_resp_new_message_e
 connection_events = []
 new_connection_event = asyncio.Event()
 
-logger.add("logs/mcp_stdio_server.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
+# logger.add("~/logs/mcp_stdio_server.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
 
 @dataclass
 class AppContext:

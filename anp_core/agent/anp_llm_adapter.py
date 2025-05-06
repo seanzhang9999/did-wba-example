@@ -38,8 +38,15 @@ async def request_openrouter(message: str, did: str, requestport: str = None) ->
         }
         await notify_chat_thread(message_data, did)
         return 500, {"answer": error_msg}
-        
     
+    agentname = os.environ.get('AGENT_NAME')
+    if agentname == "weatherbj":
+        message = "你是负责北京天气查询的机器人，你需要告诉用户你的身份，然后根据用户的查询，返回当前的天气情况。，用户输入如下：" + message
+    elif agentname == "weatherall":
+        message = "你是负责北京之外天气查询的机器人，你需要告诉用户你的身份，然后根据用户的查询，返回当前的天气情况。如果用户询问北京的天气，你告诉用户应该去找weatherbj智能体，用户输入如下：" + message
+    
+
+
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
