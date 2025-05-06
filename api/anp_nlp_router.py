@@ -18,7 +18,7 @@ from agent_connect.authentication import (
 from core.config import Settings
 
 # 导入新创建的适配器模块中的函数
-from anp_core.agent.anp_llm_adapter import request_openrouter, anp_nlp_resp_messages, anp_nlp_resp_new_message_event, notify_chat_thread
+from anp_core.agent.anp_llm_adapter import resp_handle_request, resp_handle_request_msgs, resp_handle_request_new_msg_event, notify_chat_thread
 
 router = APIRouter(tags=["chat"])
 
@@ -59,7 +59,7 @@ async def anp_nlp_service(
     requestport = get_and_validate_port(request)
     
     # 调用封装的OpenRouter请求函数
-    status_code, response_data = await request_openrouter(chat_req.message, did, requestport)
+    status_code, response_data = await resp_handle_request(chat_req.message, did, requestport)
     
     if status_code != 200:
         raise HTTPException(status_code=status_code, detail=response_data["answer"])

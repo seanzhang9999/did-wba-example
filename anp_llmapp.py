@@ -17,8 +17,8 @@ from loguru import logger
 import uvicorn
 
 from api.anp_nlp_router import (
-    anp_nlp_resp_messages,
-    anp_nlp_resp_new_message_event as server_new_message_event,
+    resp_handle_request_msgs,
+    resp_handle_request_new_msg_event as server_new_message_event,
 )
 from core.app import create_app
 from core.config import settings
@@ -448,7 +448,7 @@ async def run_chat():
 
     try:
         # 导入ANP-NLP路由器中的事件和消息
-        from api.anp_nlp_router import anp_nlp_resp_new_message_event, anp_nlp_resp_messages, notify_chat_thread
+        from api.anp_nlp_router import resp_handle_request_new_msg_event, resp_handle_request_msgs, notify_chat_thread
         
         # 检查OpenRouter API密钥是否配置
         openrouter_api_key = os.getenv("OPENROUTER_API_KEY", "")
@@ -546,7 +546,7 @@ async def run_chat():
                 # 检查是否有来自ANP-NLP API或client_example的新消息
                 try:
                     # 创建两个等待事件的任务
-                    server_wait = asyncio.create_task(asyncio.wait_for(anp_nlp_resp_new_message_event.wait(), 0.1))
+                    server_wait = asyncio.create_task(asyncio.wait_for(resp_handle_request_new_msg_event.wait(), 0.1))
                     client_wait = asyncio.create_task(asyncio.wait_for(client_new_message_event.wait(), 0.1))
                     
                     # 等待任意一个任务完成
@@ -561,13 +561,13 @@ async def run_chat():
                         task.cancel()
                     
                     # 处理服务器端消息
-                    if server_wait in done and anp_nlp_resp_new_message_event.is_set():
+                    if server_wait in done and resp_handle_request_new_msg_event.is_set():
                         # 重置事件
-                        anp_nlp_resp_new_message_event.clear()
+                        resp_handle_request_new_msg_event.clear()
                         
                         # 获取最新消息
-                        if anp_nlp_resp_messages:
-                            latest_message = anp_nlp_resp_messages[-1]
+                        if resp_handle_request_msgs:
+                            latest_message = resp_handle_request_msgs[-1]
                             
                             # 根据消息类型显示不同内容
                             if latest_message.get("type") == "client_example":

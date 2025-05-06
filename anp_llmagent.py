@@ -16,7 +16,7 @@ from anp_core.server.server import ANP_resp_start, ANP_resp_stop, server_status
 from anp_core.client.client import ANP_connector_start, ANP_connector_stop, connector_running, client_chat_messages, client_new_message_event
 
 # 从API模块导入服务器端消息处理
-from api.anp_nlp_router import anp_nlp_resp_messages, anp_nlp_resp_new_message_event as server_new_message_event
+from api.anp_nlp_router import resp_handle_request_msgs, resp_handle_request_new_msg_event as server_new_message_event
 from core.config import settings
 
 # 设置日志

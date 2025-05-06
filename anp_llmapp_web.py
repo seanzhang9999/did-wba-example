@@ -26,8 +26,8 @@ except ImportError:
     print("警告: 缺少httpx模块，某些功能将不可用。请使用 'pip install httpx' 安装该模块。")
 
 from api.anp_nlp_router import (
-    anp_nlp_resp_messages,
-    anp_nlp_resp_new_message_event as server_new_message_event,
+    resp_handle_request_msgs,
+    resp_handle_request_new_msg_event as server_new_message_event,
 )
 from core.app import create_app
 from core.config import settings
@@ -109,7 +109,7 @@ async def run_chat():
             return
             
         # 导入ANP-NLP路由器中的事件和消息
-        from api.anp_nlp_router import anp_nlp_resp_new_message_event, anp_nlp_resp_messages, notify_chat_thread
+        from api.anp_nlp_router import resp_handle_request_new_msg_event, resp_handle_request_msgs, notify_chat_thread
         
         # 检查OpenRouter API密钥是否配置
         openrouter_api_key = os.getenv("OPENROUTER_API_KEY", "")

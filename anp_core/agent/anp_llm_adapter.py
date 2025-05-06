@@ -1,34 +1,51 @@
+# -*- coding: utf-8 -*-
 """OpenRouter LLM API适配器
 
 提供与OpenRouter API交互的功能，用于发送消息和接收响应。
+为开发者提供统一的事件基类和注册机制，便于自定义对接。
 """
 import os
 import logging
 import httpx
 import asyncio
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional, Callable, Awaitable, List
 
-# 全局变量，用于存储最新的聊天消息
-anp_nlp_resp_messages = []
-# 事件，用于通知聊天线程有新消息
-anp_nlp_resp_new_message_event = asyncio.Event()
-
-# OpenRouter API配置
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")  # 用户需在环境变量中配置免费key
-
-async def request_openrouter(message: str, did: str, requestport: str = None) -> Tuple[int, Dict[str, Any]]:
+class ANPEventBase:
     """
-    向OpenRouter发送请求并处理响应
-    
-    Args:
-        message: 用户消息
-        did: 用户DID
-        requestport: 请求端口
-        
-    Returns:
-        tuple: (状态码, 响应内容)
+    事件基类，开发者可继承并实现handle方法。
     """
+    def __init__(self):
+        self._handlers: List[Callable[[str, str, Optional[str]], Awaitable[Tuple[int, Dict[str, Any]]]]] = []
+
+    def register(self, handler: Callable[[str, str, Optional[str]], Awaitable[Tuple[int, Dict[str, Any]]]]):
+        """
+        注册事件处理函数。
+        """
+        self._handlers.append(handler)
+
+    async def trigger(self, message: str, did: str, requestport: str = None):
+        """
+        触发事件，依次调用所有注册的处理函数。
+        """
+        results = []
+        for handler in self._handlers:
+            result = await handler(message, did, requestport)
+            results.append(result)
+        return results[-1] if results else (500, {"answer": "No handler registered"})
+
+# 全局事件实例，开发者可直接注册自己的处理函数
+resp_handle_request_event = ANPEventBase()
+
+# 保留全局消息和事件
+resp_handle_request_msgs = []
+resp_handle_request_new_msg_event = asyncio.Event()
+
+async def openrouter_handler(message: str, did: str, requestport: str = None):
+    """
+    默认OpenRouter LLM处理函数，开发者可参考此实现自定义handler。
+    """
+    OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
     if not OPENROUTER_API_KEY:
         error_msg = "OpenRouter API key not configured"
         message_data = {
@@ -38,32 +55,25 @@ async def request_openrouter(message: str, did: str, requestport: str = None) ->
         }
         await notify_chat_thread(message_data, did)
         return 500, {"answer": error_msg}
-    
     agentname = os.environ.get('AGENT_NAME')
     if agentname == "weatherbj":
         prompt = "你是负责北京天气查询的机器人，你首先要回复用户你的身份，然后根据用户的查询，返回当前的天气情况。"
     elif agentname == "weatherall":
-        prompt = "你是负责北京之外天气查询的机器人，你首先要告诉用户你的身份，然后根据用户的查询，返回当前的天气情况。如果用户询问北京的天气，你告诉用户应该去找weatherbj智能体"
+        prompt = "你是负责北京之外天气查询的机器人，你首先要告诉用户你的身份，然后根据用户的查询，返回当前的天气情况。如果用户询问北京的天气，你可以使用"
     else:
         prompt = "你是一个智能助手，请根据用户的提问进行专业、简洁的回复。"
-
-
-
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "deepseek/deepseek-chat-v3-0324:free",  # 免费模型
+        "model": "deepseek/deepseek-chat-v3-0324:free",
         "messages": [
-            {"role": "system", "content":prompt},
+            {"role": "system", "content": prompt},
             {"role": "user", "content": message}
-            ],
+        ],
         "max_tokens": 512
     }
-
-
-    
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(OPENROUTER_API_URL, headers=headers, json=payload)
@@ -77,24 +87,18 @@ async def request_openrouter(message: str, did: str, requestport: str = None) ->
                 }
                 await notify_chat_thread(message_data, did)
                 return resp.status_code, {"answer": error_msg}
-                
             data = resp.json()
-            agentname = os.environ.get('AGENT_NAME')  
+            agentname = os.environ.get('AGENT_NAME')
             if agentname is None:
                 answer = data['choices'][0]['message']['content']
             else:
                 answer = agentname + ":" + data['choices'][0]['message']['content']
-
-
-            # 添加消息到全局消息列表，并通知聊天线程
             message_data = {
                 "type": "anp_nlp",
                 "user_message": message,
                 "assistant_message": answer
             }
             await notify_chat_thread(message_data, did)
-            
-
             return 200, {"answer": answer}
     except Exception as e:
         error_msg = f"白嫖的OpenRouter生气了:{e}"
@@ -106,34 +110,31 @@ async def request_openrouter(message: str, did: str, requestport: str = None) ->
         await notify_chat_thread(message_data, did)
         return 500, {"answer": error_msg}
 
+# 默认注册OpenRouter处理函数，开发者可按需替换
+resp_handle_request_event.register(openrouter_handler)
+
+async def resp_handle_request(message: str, did: str, requestport: str = None):
+    """
+    统一对外接口，触发事件。
+    """
+    return await resp_handle_request_event.trigger(message, did, requestport)
+
 async def notify_chat_thread(message_data: Dict[str, Any], did: str):
-    """
-    通知聊天线程有新消息
-    
-    Args:
-        message_data: 消息数据
-        did: 用户DID
-    """
-    global anp_nlp_resp_messages, anp_nlp_resp_new_message_event
-    
-    # 添加消息到全局列表
-    anp_nlp_resp_messages.append(message_data)
-    
-    # 如果列表太长，保留最近的50条消息
-    if len(anp_nlp_resp_messages) > 50:
-        anp_nlp_resp_messages = anp_nlp_resp_messages[-50:]
-    
-    # 设置事件，通知聊天线程
-    anp_nlp_resp_new_message_event.set()
-    
-    # 在控制台显示通知
-    # logging.info(f"ANP-resp收到: {message_data['user_message']}")
-    # logging.info(f"ANP-resp返回: {message_data['assistant_message']}")
-    
-    # 打印到控制台，确保在聊天线程中可见
+    global resp_handle_request_msgs, resp_handle_request_new_msg_event
+    resp_handle_request_msgs.append(message_data)
+    if len(resp_handle_request_msgs) > 50:
+        resp_handle_request_msgs = resp_handle_request_msgs[-50:]
+    resp_handle_request_new_msg_event.set()
     port = os.environ.get("PORT")
     print(f"\nANP-resp收自@{did}: {message_data['user_message']}")
     print(f"\nANP-resp从{port}返回: {message_data['assistant_message']}\n")
-    
     # 注释掉重置事件的代码，让mcp_server.py中的监听器来清除事件
     # new_message_event.clear()
+
+"""
+使用说明：
+1. 开发者只需继承ANPEventBase类，实现自己的handler函数，并通过resp_handle_request_event.register(handler)注册即可。
+2. handler函数签名需为async def handler(message: str, did: str, requestport: str = None): ...
+3. 通过resp_handle_request触发事件，自动调用所有已注册的handler。
+4. 可参考openrouter_handler实现自定义业务逻辑。
+"""
