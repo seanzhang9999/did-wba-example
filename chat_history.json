@@ -1,48 +1,34 @@
 [
   {
     "type": "user",
-    "message": "@weatherbj:你好",
-    "timestamp": 1746468401.6539168
+    "message": "@weatherall 哈哈哈",
+    "timestamp": 1746504816.3861392
   },
   {
     "type": "system",
     "message": "已发送到智能体，请等待回复（可能需要刷新页面查看）",
-    "timestamp": 1746468401.6540658
-  },
-  {
-    "type": "user",
-    "message": "123",
-    "timestamp": 1746468456.7191858
+    "timestamp": 1746504816.3886395
   },
   {
     "type": "assistant",
-    "message": "收到消息: 123",
-    "timestamp": 1746468456.719188
+    "message": "weatherall:你好！我是负责北京之外城市天气查询的机器人助手~ \n\n我可以帮你查询北京以外中国各地和世界主要城市的实时天气情况。如果你想知道北京的天气，建议你去找专门负责北京天气的weatherbj智能体哦~\n\n你想查询哪个城市的天气呢？告诉我城市名称，我就能为你提供最新的天气信息啦！",
+    "timestamp": 1746504827.7723963,
+    "from_agent": true
   },
   {
     "type": "user",
-    "message": "@weatherbj: 21321",
-    "timestamp": 1746468471.322506
+    "message": "@weatherbj 哈哈哈",
+    "timestamp": 1746504853.2270353
   },
   {
     "type": "system",
     "message": "已发送到智能体，请等待回复（可能需要刷新页面查看）",
-    "timestamp": 1746468471.3226418
-  },
-  {
-    "type": "user",
-    "message": "@weatherbj: 1232",
-    "timestamp": 1746468971.0126688
-  },
-  {
-    "type": "system",
-    "message": "已发送到智能体，请等待回复（可能需要刷新页面查看）",
-    "timestamp": 1746468971.012793
+    "timestamp": 1746504853.2293527
   },
   {
     "type": "assistant",
-    "message": "It seems like you're trying to check the weather in Beijing using a command or code snippet `@weatherbj: 1232`, but this format isn't recognized by standard weather services. Here’s how you can get accurate weather information for Beijing:\n\n### Options to Check Beijing Weather:\n1. **Weather Websites/Apps**  \n   - Visit [AccuWeather](https://www.accuweather.com/), [Weather.com](https://weather.com/), or [Windy](https://www.windy.com/) and search for \"Beijing\".\n\n2. **Voice Assistants**  \n   - Ask Siri, Google Assistant, or Alexa:  \n     *\"What’s the weather in Beijing today?\"*\n\n3. **API Services** (for developers)  \n   - Use `OpenWeatherMap` or `WeatherAPI` with a request like:  \n     ```python\n     import requests\n     response = requests.get(\"https://api.openweathermap.org/data/2.5/weather?q=Beijing&appid=YOUR_API_KEY\")\n     print(response.json())\n     ```\n\n4. **Local Beijing Weather Codes**  \n   - If you’re using a specific platform (e.g., a Chinese service), ensure the code format is correct. The number `1232` doesn’t correspond to standard weather codes.\n\n### Current Beijing Weather (Example):\n- **Temperature**: 25°C (77°F)  \n- **Conditions**: Sunny ☀️  \n- **AQI**: Moderate (check [AQICN](https://aqicn.org/city/beijing/))  \n\nLet me know if you’d like help interpreting weather data or finding a specific service!",
-    "timestamp": 1746468999.967063,
+    "message": "weatherbj:  \n(先一本正经)  \n您好，我是北京市气象局官方AI气象员小晴~  \n\n(突然切换欢快语气)  \n不过您这笑声让我有点慌...是看到我头顶的乌云特效了吗？现在北京实时天气可阳光灿烂呢！需要为您查询具体区域天气吗？ 🌞",
+    "timestamp": 1746504861.240235,
     "from_agent": true
   }
 ]

@@ -229,7 +229,7 @@ async function sendMessage() {
     }
     
     // 检查是否是智能体命令
-    if (message.startsWith('@') && message.includes(':')) {
+    if (message.startsWith('@') && message.includes(' ')) {
         sendAgentMessage(message);
     } else {
         sendRegularMessage(message);
@@ -481,7 +481,7 @@ function useBookmark(bookmark) {
     }
     
     // 在输入框中填入智能体命令
-    messageInput.value = `@${bookmark.name}: `;
+    messageInput.value = `@${bookmark.name} `;
     messageInput.focus();
 }
 

@@ -299,8 +299,35 @@ async def send_message(request: MessageRequest):
         
         # 如果是智能体命令
         if request.isAgentCommand:
+            parts = message.strip().split(" ", 1)
+            agentname = parts[0].strip().split("@", 1)
+            agentname = agentname[1]
+            bookmark_config_dir = os.path.dirname(os.path.abspath(__file__))
+            bookmark_config_dir = os.path.join(bookmark_config_dir, "anp_core", "anp_bookmark")
+            os.makedirs(bookmark_config_dir, exist_ok=True)
+            bookmark_config_file = os.path.join(bookmark_config_dir, f"{agentname}.js")
+            if os.path.exists(bookmark_config_file):
+            # 读取已有的配置文件
+                print(f"找到智能体书签文件: {bookmark_config_file}")
+                with open(bookmark_config_file, 'r', encoding='utf-8') as f:
+                    config_data = json.loads(f.read())
+                    agentname = config_data.get('name')
+                    did = config_data.get('did')
+                    url = config_data.get('url')
+                    port = config_data.get('port')
+                print(f"使用{agentname}智能体DID: {did}地址：{url}端口：{port}通讯")
+                os.environ['target-port'] = f"{port}"
+                custom_msg = "ANPbot的问候，请二十字内回复我"
+                if len(parts) > 1 and parts[1].strip():
+                    custom_msg = parts[1].strip()
+                print(f"将向智能体{port}发送消息: {custom_msg}")
+                chat_running = False
+                os.environ['target-port'] = f"{port}"
+                os.environ['target-host'] = f"{url}"
+                # 获取token，如果环境变量中不存在则使用None
+                token = os.environ.get('did-token', None)
             # 发送到ANP服务器
-            chat_to_ANP(message)
+            chat_to_ANP(custom_msg,token = token)
             
             # 添加系统消息到聊天历史
             chat_history.append({

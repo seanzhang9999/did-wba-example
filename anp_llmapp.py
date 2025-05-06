@@ -400,6 +400,8 @@ async def _chat_to_ANP_impl(custom_msg, token=None, unique_id_arg=None):
         target_port = settings.TARGET_SERVER_PORT
         if os.environ.get('target-port'):
             target_port = os.environ.get('target-port')
+        if os.environ.get('target-host'):
+            target_host = os.environ.get('target-host')
 
         base_url = f"http://{target_host}:{target_port}"
         
@@ -463,7 +465,7 @@ async def run_chat():
         }
         
         print("\n已启动LLM聊天线程。输入消息与AI对话，输入 /q 退出。")
-        print("特殊命令: 输入 @[agent-name]:[msg] 。")
+        print("特殊命令: 输入 @[agent-name] [msg]")
         logging.info("聊天线程启动 - 直接调用OpenRouter API")
         
         # 进入聊天模式
@@ -477,8 +479,8 @@ async def run_chat():
                     break
                 
                 # 处理特殊命令 @anp-bot
-                if user_msg.strip().startswith("@") and user_msg.strip().find(":") :
-                    parts = user_msg.strip().split(":", 1)
+                if user_msg.strip().startswith("@") and user_msg.strip().find(" ") :
+                    parts = user_msg.strip().split(" ", 1)
                     agentname = parts[0].strip().split("@", 1)
                     agentname = agentname[1]
                     bookmark_config_dir = os.path.dirname(os.path.abspath(__file__))
@@ -501,6 +503,8 @@ async def run_chat():
                             custom_msg = parts[1].strip()
                         print(f"将向智能体{port}发送消息: {custom_msg}")
                         chat_running = False
+                        os.environ['target-port'] = f"{port}"
+                        os.environ['target-host'] = f"{url}"
                         # 获取token，如果环境变量中不存在则使用None
                         token = os.environ.get('did-token', None)
                         # 调用send_msg函数发送消息（非阻塞方式）

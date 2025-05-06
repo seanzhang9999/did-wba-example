@@ -28,7 +28,9 @@ anp自身份与其他用户身份管理发布
 ## 问题与bug
 
 1. 当前版本
-    Trae sse mcp 连接消息发送失败
-    mcp dev stdio 消息发送失败
-    stdio 客户端测试比较正常 也会偶发服务器问题
+    Trae 调 sse mcp 连接消息发送失败， 启用mcp dev stdio 消息发送失败
+    Trae stdio 客户端测试比较正常 也会偶发服务器问题
     猜想问题出在resp的服务启动上概率大
+    Claude使用绝对路径python调用stdio可以启动 
+        已通过增加printmute 解决print导致的mcp调用问题
+        但是启动stdio时还报错log只读

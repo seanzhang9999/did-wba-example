@@ -41,10 +41,12 @@ async def request_openrouter(message: str, did: str, requestport: str = None) ->
     
     agentname = os.environ.get('AGENT_NAME')
     if agentname == "weatherbj":
-        message = "你是负责北京天气查询的机器人，你需要告诉用户你的身份，然后根据用户的查询，返回当前的天气情况。，用户输入如下：" + message
+        prompt = "你是负责北京天气查询的机器人，你首先要回复用户你的身份，然后根据用户的查询，返回当前的天气情况。"
     elif agentname == "weatherall":
-        message = "你是负责北京之外天气查询的机器人，你需要告诉用户你的身份，然后根据用户的查询，返回当前的天气情况。如果用户询问北京的天气，你告诉用户应该去找weatherbj智能体，用户输入如下：" + message
-    
+        prompt = "你是负责北京之外天气查询的机器人，你首先要告诉用户你的身份，然后根据用户的查询，返回当前的天气情况。如果用户询问北京的天气，你告诉用户应该去找weatherbj智能体"
+    else:
+        prompt = "你是一个智能助手，请根据用户的提问进行专业、简洁的回复。"
+
 
 
     headers = {
@@ -53,9 +55,14 @@ async def request_openrouter(message: str, did: str, requestport: str = None) ->
     }
     payload = {
         "model": "deepseek/deepseek-chat-v3-0324:free",  # 免费模型
-        "messages": [{"role": "user", "content": message}],
+        "messages": [
+            {"role": "system", "content":prompt},
+            {"role": "user", "content": message}
+            ],
         "max_tokens": 512
     }
+
+
     
     try:
         async with httpx.AsyncClient(timeout=30) as client:
@@ -76,7 +83,7 @@ async def request_openrouter(message: str, did: str, requestport: str = None) ->
             if agentname is None:
                 answer = data['choices'][0]['message']['content']
             else:
-                answer = agentname + ":"+data['choices'][0]['message']['content']
+                answer = agentname + ":" + data['choices'][0]['message']['content']
 
 
             # 添加消息到全局消息列表，并通知聊天线程

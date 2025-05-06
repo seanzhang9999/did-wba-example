@@ -140,8 +140,8 @@ async def run_chat():
                     break
                 
 # 处理特殊命令 @anp-bot
-                if user_msg.strip().startswith("@") and user_msg.strip().find(":") :
-                    parts = user_msg.strip().split(":", 1)
+                if user_msg.strip().startswith("@") and user_msg.strip().find(" ") :
+                    parts = user_msg.strip().split(" ", 1)
                     agentname = parts[0].strip().split("@", 1)
                     agentname = agentname[1]
                     bookmark_config_dir = os.path.dirname(os.path.abspath(__file__))
@@ -159,6 +159,7 @@ async def run_chat():
                             port = config_data.get('port')
                         print(f"使用{agentname}智能体DID: {did}地址：{url}端口：{port}通讯")
                         os.environ['target-port'] = f"{port}"
+                        os.environ['target-host'] = f"{url}"                        
                         custom_msg = "ANPbot的问候，请二十字内回复我"
                         if len(parts) > 1 and parts[1].strip():
                             custom_msg = parts[1].strip()
@@ -340,11 +341,14 @@ async def _chat_to_ANP_impl(custom_msg, token=None, unique_id_arg=None):
     """发送消息的实际实现（内部函数）
     """
     try:
+
+       
         target_host = settings.TARGET_SERVER_HOST
         target_port = settings.TARGET_SERVER_PORT
         if os.environ.get('target-port'):
             target_port = os.environ.get('target-port')
-
+        if os.environ.get('target-host'):
+            target_host = os.environ.get('target-host')
         base_url = f"http://{target_host}:{target_port}"
         
         if not token:
