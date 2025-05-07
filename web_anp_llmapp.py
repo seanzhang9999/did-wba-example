@@ -34,9 +34,10 @@ from core.config import settings
 from anp_core.server.server import ANP_resp_start, ANP_resp_stop, server_status
 from anp_core.client.client import ANP_req_auth, ANP_req_chat
 from utils.log_base import set_log_color_level
-
+user_dir = os.path.dirname(os.path.abspath(__file__))
+user_dir = os.path.join(user_dir, "logs")
 # 设置日志
-logger.add("logs/anp_llm.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
+logger.add(f"{user_dir}/anp_llmapp_web.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
 
 # Create FastAPI application
 app = create_app()

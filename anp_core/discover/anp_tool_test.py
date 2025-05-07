@@ -313,6 +313,7 @@ async def main():
         did_document_path=did_document_path,
         private_key_path=private_key_path,
         max_documents=10,  # Crawl up to 10 documents
+        initial_url="http://127.0.0.1:10086"
     )
 
     # Print result

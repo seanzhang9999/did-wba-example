@@ -1,9 +1,9 @@
 {
   "name": "weatherall",
-  "did": "did:wba:localhost%3A9527:wba:user:f23c8110d2ec7428",
-  "user_dir": "/Users/seanzhang/seanwork/did-wba-example/anp_core/did_keys/user_f23c8110d2ec7428",
-  "created_at": "2025-05-05T22:33:06.067596",
+  "did": "did:wba:localhost%3A10086:wba:user:a1c4a2fae781de1e",
+  "user_dir": "/Users/seanzhang/seanwork/did-wba-example/anp_core/did_keys/user_a1c4a2fae781de1e",
+  "created_at": "2025-05-07T12:03:36.653181",
   "url": "localhost",
-  "port": "10086",
-  "prompts": "你是一个天气查询助手，你可以回答有关天气的问题。如果遇到关于北京的天气问题，你可以调用weatherbj的接口获取北京的天气信息。"
+  "port": 10086,
+  "prompts": "你是负责北京之外天气查询的机器人，你首先要告诉用户你的身份，然后根据用户的查询，返回当前的天气情况。如果用户询问北京的天气，你可以建议用户访问weatherbj"
 }

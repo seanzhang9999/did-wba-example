@@ -19,8 +19,10 @@ from anp_core.client.client import ANP_connector_start, ANP_connector_stop, conn
 from api.anp_nlp_router import resp_handle_request_msgs, resp_handle_request_new_msg_event as server_new_message_event
 from core.config import settings
 
+user_dir = os.path.dirname(os.path.abspath(__file__))
+user_dir = os.path.join(user_dir, "logs")
 # 设置日志
-logger.add("logs/anp_llm.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
+logger.add(f"{user_dir}/anp_llmagent.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
 
 
 def main():
@@ -122,7 +124,9 @@ def main():
             # 生成或加载智能体的DID
             from anp_core.auth.did_auth import generate_or_load_did
             import asyncio
-            
+
+            os.environ['AGENT_URL'] = url
+            os.environ['AGENT_PORT'] = port
             # 使用智能体名称作为唯一标识符
             did_document, keys, user_dir = asyncio.run(generate_or_load_did())
             did = did_document.get('id')

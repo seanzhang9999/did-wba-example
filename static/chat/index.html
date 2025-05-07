@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DID WBA 聊天界面</title>
+    <title>DID WBA Agent Chat</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>DID WBA 聊天应用</h1>
+            <h1>DID WBA Agent Chat</h1>
             <div class="status-container">
                 <div class="status-item">
                     <span class="status-label">服务器状态:</span>
@@ -33,6 +33,7 @@
                 
                 <div class="input-container">
                     <input type="text" id="message-input" placeholder="输入消息..." disabled>
+                    <button id="recommend-button" class="btn btn-info" disabled>推荐</button>
                     <button id="send-button" class="btn btn-primary" disabled>发送</button>
                     <button id="clear-history" class="btn btn-secondary">清除历史</button>
                 </div>
@@ -40,21 +41,93 @@
 
             <div class="agent-bookmarks">
                 <h3>智能体书签</h3>
+                <div class="bookmark-form">
+                    <input type="text" id="agent-name" placeholder="http://localhost:8080/api/public/instances">
+                    <button id="load-bookmarks" class="btn btn-sm btn-outline-primary">加载</button>
+                </div>
                 <div id="bookmarks-list" class="bookmarks-container">
                     <div class="no-bookmarks">暂无智能体书签</div>
-                </div>
-                <div class="bookmark-form">
-                    <input type="text" id="agent-name" placeholder="智能体名称">
-                    <button id="add-bookmark" class="btn btn-sm btn-outline-primary">添加</button>
                 </div>
             </div>
         </main>
 
         <footer>
-            <p>DID WBA 示例应用 &copy; 2023</p>
+            <p>DID WBA 示例应用 &copy; 2025</p>
         </footer>
     </div>
 
     <script src="/static/js/script.js"></script>
 </body>
 </html>
+<style>
+/* 书签样式 */
+.bookmark-item {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #f9f9f9;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.bookmark-info {
+    flex: 1;
+}
+
+.bookmark-name {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.bookmark-details {
+    font-size: 0.85em;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.bookmark-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.no-details {
+    font-style: italic;
+    color: #999;
+}
+
+/* 发现功能样式 */
+.discovery-container {
+    margin-top: 8px;
+}
+
+.discovery-content {
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 0.8em;
+    margin-top: 5px;
+    white-space: pre-wrap;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.discovery-waiting {
+    margin-top: 5px;
+    font-style: italic;
+    color: #007bff;
+    text-align: center;
+}
+
+.discovery-toggle {
+    font-size: 0.8em;
+    padding: 2px 8px;
+}
+</style>
+<div class="bookmark-actions">
+                    <button class="btn btn-sm btn-outline-primary use-btn">使用</button>
+                    <button class="btn btn-sm btn-outline-info discover-btn">挖掘</button>
+                    <button class="btn btn-sm btn-outline-danger delete-btn">删除</button>
+                </div>

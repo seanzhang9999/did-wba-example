@@ -46,9 +46,10 @@ from api.anp_nlp_router import resp_handle_request_msgs, resp_handle_request_new
 # Store connection events for notification
 connection_events = []
 new_connection_event = asyncio.Event()
-
-logger.add("logs/mcp_sse_server.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
-
+user_dir = os.path.dirname(os.path.abspath(__file__))
+user_dir = os.path.join(user_dir, "logs")
+# 设置日志
+logger.add(f"{user_dir}/sse_server.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
 
 @dataclass
 class AppContext:

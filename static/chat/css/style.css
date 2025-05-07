@@ -144,34 +144,88 @@ main {
     color: #2c3e50;
 }
 
+/* 书签样式 */
 .bookmarks-container {
-    max-height: 50vh;
-    overflow-y: auto;
+    margin-top: 20px;
+}
+
+.bookmarks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.bookmark-form {
+    display: flex;
+    gap: 10px;
     margin-bottom: 15px;
+}
+
+.bookmark-form input {
+    flex: 1;
+}
+
+.bookmarks-list {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    max-height: 300px;
+    overflow-y: auto;
 }
 
 .bookmark-item {
     display: flex;
-    align-items: center;
     justify-content: space-between;
+    align-items: flex-start;
     padding: 10px;
-    background-color: #f9f9f9;
-    border-radius: 4px;
-    margin-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.bookmark-item:last-child {
+    border-bottom: none;
+}
+
+.bookmark-info {
+    flex: 1;
 }
 
 .bookmark-name {
-    font-weight: 600;
+    font-weight: bold;
+    margin-bottom: 5px;
 }
 
-.bookmark-actions button {
-    margin-left: 5px;
+.bookmark-details {
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 5px;
+    padding-left: 10px;
+    border-left: 2px solid #eee;
+}
+
+.bookmark-did,
+.bookmark-url,
+.bookmark-port {
+    margin-bottom: 2px;
+}
+
+.toggle-details {
+    font-size: 0.75em;
+    padding: 2px 5px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+.bookmark-actions {
+    display: flex;
+    gap: 5px;
+    align-items: flex-start;
 }
 
 .no-bookmarks {
-    color: #999;
     text-align: center;
-    padding: 20px 0;
+    color: #999;
+    padding: 20px;
 }
 
 .bookmark-form {

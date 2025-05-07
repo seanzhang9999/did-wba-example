@@ -14,8 +14,10 @@ from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
 from mcp.types import TextResourceContents, TextContent
 
-logger.add("logs/mcp_client.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
-
+user_dir = os.path.dirname(os.path.abspath(__file__))
+user_dir = os.path.join(user_dir, "logs")
+# 设置日志
+logger.add(f"{user_dir}/stdio_client.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
 
 def get_status_data(status_contents: List[TextContent]):
     assert len(status_contents) != 0, "状态返回数据为空"

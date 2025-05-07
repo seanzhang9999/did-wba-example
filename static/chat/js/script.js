@@ -5,10 +5,11 @@ const toggleServerBtn = document.getElementById('toggle-server');
 const toggleChatBtn = document.getElementById('toggle-chat');
 const messageInput = document.getElementById('message-input');
 const sendButton = document.getElementById('send-button');
+const recommendButton = document.getElementById('recommend-button');
 const chatMessages = document.getElementById('chat-messages');
 const bookmarksList = document.getElementById('bookmarks-list');
 const agentNameInput = document.getElementById('agent-name');
-const addBookmarkBtn = document.getElementById('add-bookmark');
+const loadBookmarksBtn = document.getElementById('load-bookmarks');
 const clearHistoryBtn = document.getElementById('clear-history');
 
 // 状态变量
@@ -27,7 +28,8 @@ const API_ENDPOINTS = {
     chatStatus: '/api/chat/status',
     sendMessage: '/api/chat/send',
     getBookmarks: '/api/bookmarks',
-    addBookmark: '/api/bookmarks/add'
+    addBookmark: '/api/bookmarks/add',
+    discoverAgent: '/api/discoveragent'
 };
 
 // 初始化
@@ -41,10 +43,14 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleServerBtn.addEventListener('click', toggleServer);
     toggleChatBtn.addEventListener('click', toggleChat);
     sendButton.addEventListener('click', sendMessage);
+    recommendButton.addEventListener('click', recommendAgent);
     messageInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendMessage();
     });
-    addBookmarkBtn.addEventListener('click', addBookmark);
+    loadBookmarksBtn.addEventListener('click', () => {
+        const url = agentNameInput.value.trim() || 'http://localhost:8080/api/public/instances';
+        loadBookmarks(url);
+    });
     clearHistoryBtn.addEventListener('click', clearChatHistory);
 });
 
@@ -102,7 +108,7 @@ async function checkServerStatus() {
         serverRunning = data.running;
         updateServerStatus();
         
-        // 如果服务器在运行，检查聊天状态
+        // 如果服务器在运行 检查聊天状态
         if (serverRunning) {
             checkChatStatus();
         }
@@ -155,12 +161,94 @@ function updateChatStatus() {
         toggleChatBtn.textContent = '停止聊天';
         messageInput.disabled = false;
         sendButton.disabled = false;
+        recommendButton.disabled = false;
     } else {
         chatStatusEl.textContent = '离线';
         chatStatusEl.className = 'status-badge status-offline';
         toggleChatBtn.textContent = '启动聊天';
         messageInput.disabled = true;
         sendButton.disabled = true;
+        recommendButton.disabled = true;
+    }
+}
+
+// 推荐智能体
+async function recommendAgent() {
+    const message = messageInput.value.trim();
+    if (!message) {
+        addSystemMessage('请先输入您的需求描述');
+        return;
+    }
+    
+    if (!chatRunning) {
+        addSystemMessage('请先启动聊天');
+        return;
+    }
+    
+    // 添加用户消息到UI
+    addUserMessage(`需求: ${message}`);
+    
+    // 添加等待提示
+    const waitingMsg = document.createElement('div');
+    waitingMsg.className = 'system-message waiting-message recommend-waiting';
+    waitingMsg.textContent = '正在分析您的需求并推荐合适的智能体...';
+    chatMessages.appendChild(waitingMsg);
+    scrollToBottom();
+    
+    try {
+        // 准备请求数据 - 包含用户消息和所有可用的智能体信息
+        const requestData = {
+            message: `请根据用户的需求"${message}"，从以下智能体中推荐最合适的一个，只返回推荐智能体的名称：${JSON.stringify(bookmarks)}`,
+            isRecommendation: true
+        };
+        
+        const response = await fetch(API_ENDPOINTS.sendMessage, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        const data = await response.json();
+        
+        // 移除等待提示
+        const waitingElement = document.querySelector('.recommend-waiting');
+        if (waitingElement) {
+            waitingElement.remove();
+        }
+        
+        if (data.success) {
+            // 解析大模型的推荐结果
+            const recommendedAgentName = data.response.trim();
+            
+            // 查找推荐的智能体
+            const recommendedAgent = bookmarks.find(b => 
+                b.name.toLowerCase() === recommendedAgentName.toLowerCase() ||
+                recommendedAgentName.toLowerCase().includes(b.name.toLowerCase())
+            );
+            
+            if (recommendedAgent) {
+                // 添加推荐消息
+                addSystemMessage(`推荐使用智能体: ${recommendedAgent.name}`);
+                
+                // 自动选择该智能体
+                useBookmark(recommendedAgent);
+            } else {
+                addSystemMessage(`未找到匹配的智能体: ${recommendedAgentName}`);
+            }
+        } else {
+            addSystemMessage(`推荐失败: ${data.message}`);
+        }
+    } catch (error) {
+        // 移除等待提示
+        const waitingElement = document.querySelector('.recommend-waiting');
+        if (waitingElement) {
+            waitingElement.remove();
+        }
+        
+        console.error('推荐智能体出错:', error);
+        addSystemMessage('推荐智能体失败，请检查控制台获取详细信息');
     }
 }
 
@@ -206,7 +294,7 @@ async function toggleChat() {
         if (data.success) {
             chatRunning = !chatRunning;
             updateChatStatus();
-            
+            console.log('成功', chatRunning);
             // 添加系统消息
             addSystemMessage(chatRunning ? '聊天已启动' : '聊天已停止');
         } else {
@@ -244,6 +332,13 @@ async function sendRegularMessage(message) {
     // 添加用户消息到UI
     addUserMessage(message);
     
+    // 添加等待提示
+    const waitingMsg = document.createElement('div');
+    waitingMsg.className = 'system-message waiting-message local-waiting';
+    waitingMsg.textContent = '正在等待本地智能体回复...';
+    chatMessages.appendChild(waitingMsg);
+    scrollToBottom();
+    
     try {
         const response = await fetch(API_ENDPOINTS.sendMessage, {
             method: 'POST',
@@ -255,6 +350,12 @@ async function sendRegularMessage(message) {
         
         const data = await response.json();
         
+        // 移除等待提示
+        const waitingElement = document.querySelector('.local-waiting');
+        if (waitingElement) {
+            waitingElement.remove();
+        }
+        
         if (data.success) {
             // 添加助手回复到UI
             addAssistantMessage(data.response);
@@ -262,9 +363,35 @@ async function sendRegularMessage(message) {
             addSystemMessage(`发送消息失败: ${data.message}`);
         }
     } catch (error) {
+        // 移除等待提示
+        const waitingElement = document.querySelector('.local-waiting');
+        if (waitingElement) {
+            waitingElement.remove();
+        }
+        
         console.error('发送消息出错:', error);
         addSystemMessage('发送消息失败，请检查控制台获取详细信息');
     }
+}
+
+// 使用智能体书签
+function useBookmark(bookmark) {
+    if (!chatRunning) {
+        addSystemMessage('请先启动聊天');
+        return;
+    }
+    
+    // 在输入框中填入智能体命令
+    messageInput.value = `@${bookmark.name} `;
+    messageInput.focus();
+    
+    // 存储当前选中的智能体信息
+    window.selectedAgent = {
+        name: bookmark.name,
+        did: bookmark.did,
+        url: bookmark.url,
+        port: bookmark.port
+    };
 }
 
 // 发送智能体消息
@@ -273,12 +400,28 @@ async function sendAgentMessage(message) {
     addUserMessage(message);
     
     try {
+        // 解析消息格式 @agentname message
+        const parts = message.trim().split(' ', 1);
+        const agentName = parts[0].substring(1); // 去掉@符号
+        const agentMessage = message.substring(parts[0].length).trim();
+        
+        // 准备请求数据
+        let requestData = { 
+            message, 
+            isAgentCommand: true 
+        };
+        
+        // 如果有选中的智能体信息，直接传递给后端
+        if (window.selectedAgent && window.selectedAgent.name === agentName) {
+            requestData.agentInfo = window.selectedAgent;
+        }
+        
         const response = await fetch(API_ENDPOINTS.sendMessage, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ message, isAgentCommand: true })
+            body: JSON.stringify(requestData)
         });
         
         const data = await response.json();
@@ -413,64 +556,190 @@ function scrollToBottom() {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// 加载智能体书签
-async function loadBookmarks() {
+// 加载书签
+async function loadBookmarks(url) {
     try {
-        const response = await fetch(API_ENDPOINTS.getBookmarks);
+        let response;
+        if (url) {
+            response = await fetch(`${API_ENDPOINTS.getBookmarks}?url=${encodeURIComponent(url)}`);
+        } else {
+            response = await fetch(API_ENDPOINTS.getBookmarks);
+        }
+        
         const data = await response.json();
         
-        if (data.success) {
+        if (data.success && data.bookmarks) {
             bookmarks = data.bookmarks;
             renderBookmarks();
         } else {
             console.error('加载书签失败:', data.message);
+            addSystemMessage(`加载书签失败: ${data.message}`);
         }
     } catch (error) {
         console.error('加载书签出错:', error);
+        addSystemMessage('加载书签失败，请检查控制台获取详细信息');
     }
 }
 
-// 渲染智能体书签
+// 渲染书签列表
 function renderBookmarks() {
-    bookmarksList.innerHTML = '';
-    
     if (bookmarks.length === 0) {
-        const noBookmarks = document.createElement('div');
-        noBookmarks.className = 'no-bookmarks';
-        noBookmarks.textContent = '暂无智能体书签';
-        bookmarksList.appendChild(noBookmarks);
+        bookmarksList.innerHTML = '<div class="no-bookmarks">暂无智能体书签</div>';
         return;
     }
+    
+    bookmarksList.innerHTML = '';
     
     bookmarks.forEach(bookmark => {
         const bookmarkEl = document.createElement('div');
         bookmarkEl.className = 'bookmark-item';
+        bookmarkEl.dataset.id = bookmark.id;
+        
+        const bookmarkInfo = document.createElement('div');
+        bookmarkInfo.className = 'bookmark-info';
         
         const nameEl = document.createElement('div');
         nameEl.className = 'bookmark-name';
         nameEl.textContent = bookmark.name;
         
+        const detailsEl = document.createElement('div');
+        detailsEl.className = 'bookmark-details';
+        
+        // 添加DID、URL和端口信息（如果有）
+        if (bookmark.did || bookmark.url || bookmark.port) {
+            const detailsText = [];
+            if (bookmark.did) detailsText.push(`DID: ${bookmark.did}`);
+            if (bookmark.url) detailsText.push(`URL: ${bookmark.url}`);
+            if (bookmark.port) detailsText.push(`端口: ${bookmark.port}`);
+            detailsEl.textContent = detailsText.join(' | ');
+        } else {
+            detailsEl.textContent = '未设置详细信息';
+            detailsEl.classList.add('no-details');
+        }
+        
+        bookmarkInfo.appendChild(nameEl);
+        bookmarkInfo.appendChild(detailsEl);
+        
+        // 添加发现信息（如果有）
+        if (bookmark.discovery) {
+            const discoveryContainer = document.createElement('div');
+            discoveryContainer.className = 'discovery-container';
+            
+            const discoveryToggle = document.createElement('button');
+            discoveryToggle.className = 'btn btn-sm btn-outline-secondary discovery-toggle';
+            discoveryToggle.textContent = '显示详情';
+            discoveryToggle.onclick = function() {
+                const discoveryContent = this.nextElementSibling;
+                if (discoveryContent.style.display === 'none') {
+                    discoveryContent.style.display = 'block';
+                    this.textContent = '隐藏详情';
+                } else {
+                    discoveryContent.style.display = 'none';
+                    this.textContent = '显示详情';
+                }
+            };
+            
+            const discoveryContent = document.createElement('pre');
+            discoveryContent.className = 'discovery-content';
+            discoveryContent.textContent = bookmark.discovery;
+            discoveryContent.style.display = 'none';
+            
+            discoveryContainer.appendChild(discoveryToggle);
+            discoveryContainer.appendChild(discoveryContent);
+            bookmarkInfo.appendChild(discoveryContainer);
+        }
+        
         const actionsEl = document.createElement('div');
         actionsEl.className = 'bookmark-actions';
         
         const useBtn = document.createElement('button');
-        useBtn.className = 'btn btn-sm btn-outline-primary';
+        useBtn.className = 'btn btn-sm btn-outline-primary use-btn';
         useBtn.textContent = '使用';
-        useBtn.addEventListener('click', () => useBookmark(bookmark));
+        useBtn.onclick = () => useBookmark(bookmark);
+        
+        const discoverBtn = document.createElement('button');
+        discoverBtn.className = 'btn btn-sm btn-outline-info discover-btn';
+        discoverBtn.textContent = '发现';
+        discoverBtn.onclick = () => discoverAgent(bookmark);
         
         const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'btn btn-sm btn-outline-danger';
+        deleteBtn.className = 'btn btn-sm btn-outline-danger delete-btn';
         deleteBtn.textContent = '删除';
-        deleteBtn.addEventListener('click', () => deleteBookmark(bookmark.id));
+        deleteBtn.onclick = () => deleteBookmark(bookmark.id);
         
         actionsEl.appendChild(useBtn);
+        actionsEl.appendChild(discoverBtn);
         actionsEl.appendChild(deleteBtn);
         
-        bookmarkEl.appendChild(nameEl);
+        bookmarkEl.appendChild(bookmarkInfo);
         bookmarkEl.appendChild(actionsEl);
         
         bookmarksList.appendChild(bookmarkEl);
     });
+}
+
+// 发现智能体
+async function discoverAgent(bookmark) {
+    if (!chatRunning) {
+        addSystemMessage('请先启动聊天');
+        return;
+    }
+    
+    if (!bookmark.url) {
+        addSystemMessage('该智能体没有URL信息，无法进行发现');
+        return;
+    }
+    
+    // 添加等待提示
+    const waitingMsg = document.createElement('div');
+    waitingMsg.className = 'system-message waiting-message discover-waiting';
+    waitingMsg.textContent = '正在发现智能体...';
+    chatMessages.appendChild(waitingMsg);
+    scrollToBottom();
+    
+    try {
+        const response = await fetch(API_ENDPOINTS.discoverAgent, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                bookmark_id: bookmark.id,
+                url: bookmark.url,
+                port: bookmark.port
+            })
+        });
+        
+        const data = await response.json();
+        
+        // 移除等待提示
+        const waitingElement = document.querySelector('.discover-waiting');
+        if (waitingElement) {
+            waitingElement.remove();
+        }
+        
+        if (data.success) {
+            // 更新书签的discovery字段
+            bookmark.discovery = data.discovery;
+            
+            // 重新渲染书签列表
+            renderBookmarks();
+            
+            // 添加成功消息
+            addSystemMessage(`智能体发现成功: ${data.message}`);
+        } else {
+            addSystemMessage(`智能体发现失败: ${data.message}`);
+        }
+    } catch (error) {
+        // 移除等待提示
+        const waitingElement = document.querySelector('.discover-waiting');
+        if (waitingElement) {
+            waitingElement.remove();
+        }
+        
+        console.error('发现智能体出错:', error);
+        addSystemMessage('发现智能体失败，请检查控制台获取详细信息');
+    }
 }
 
 // 使用智能体书签
@@ -483,6 +752,61 @@ function useBookmark(bookmark) {
     // 在输入框中填入智能体命令
     messageInput.value = `@${bookmark.name} `;
     messageInput.focus();
+    
+    // 存储当前选中的智能体信息
+    window.selectedAgent = {
+        name: bookmark.name,
+        did: bookmark.did,
+        url: bookmark.url,
+        port: bookmark.port
+    };
+}
+
+// 发送智能体消息
+async function sendAgentMessage(message) {
+    // 添加用户消息到UI
+    addUserMessage(message);
+    
+    try {
+        // 解析消息格式 @agentname message
+        const parts = message.trim().split(' ', 1);
+        const agentName = parts[0].substring(1); // 去掉@符号
+        const agentMessage = message.substring(parts[0].length).trim();
+        
+        // 准备请求数据
+        let requestData = { 
+            message, 
+            isAgentCommand: true 
+        };
+        
+        // 如果有选中的智能体信息，直接传递给后端
+        if (window.selectedAgent && window.selectedAgent.name === agentName) {
+            requestData.agentInfo = window.selectedAgent;
+        }
+        
+        const response = await fetch(API_ENDPOINTS.sendMessage, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // 添加助手回复到UI
+            addAssistantMessage(data.response);
+            
+            // 启动轮询，检查智能体回复
+            startPollingForAgentResponse();
+        } else {
+            addSystemMessage(`发送智能体消息失败: ${data.message}`);
+        }
+    } catch (error) {
+        console.error('发送智能体消息出错:', error);
+        addSystemMessage('发送智能体消息失败，请检查控制台获取详细信息');
+    }
 }
 
 // 添加智能体书签

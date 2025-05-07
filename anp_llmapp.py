@@ -45,8 +45,10 @@ client_chat_messages = []
 # 事件，用于通知聊天线程有新消息
 client_new_message_event = asyncio.Event()
 
+user_dir = os.path.dirname(os.path.abspath(__file__))
+user_dir = os.path.join(user_dir, "logs")
 # 设置日志
-logger.add("logs/anp_llm.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
+logger.add(f"{user_dir}/anp_llmapp.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
 
 # Create FastAPI application
 app = create_app()

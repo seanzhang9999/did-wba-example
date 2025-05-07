@@ -15,7 +15,7 @@ from pathlib import Path
 
 from fastapi import Request, HTTPException
 from canonicaljson import encode_canonical_json
-from agent_connect.authentication import (
+from anp_core.agent_connect.authentication import (
     verify_auth_header_signature,
     resolve_did_wba_document,
     extract_auth_header_parts,
@@ -247,11 +247,19 @@ async def generate_or_load_did(unique_id: str = None) -> Tuple[Dict, Dict, str]:
     # 创建DID文档
     logging.info("Creating new DID document...")
     host = f"localhost"
+    port = settings.PORT
+    if os.getenv('AGENT_PORT'):
+        port = f"{os.getenv('AGENT_PORT')}"
+    if os.getenv('AGENT_URL'):
+        host = f"{os.getenv('AGENT_URL')}"
+    
+
+
     did_document, keys = create_did_wba_document(
-        hostname=host,
-        port=settings.PORT,
+        host,
+        port,
         path_segments=["wba", "user", unique_id],
-        agent_description_url=f"http://{host}:{settings.PORT}/agents/example/ad.json"
+        agent_description_url=f"http://{host}:{port}/agents/example/ad.json"
     )
     
     # 保存私钥和DID文档

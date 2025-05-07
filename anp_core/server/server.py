@@ -47,8 +47,10 @@ class ServerStatus:
 # 创建全局单例
 server_status = ServerStatus()
 
-# 初始化日志
-logger.add("logs/did_server.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
+user_dir = os.path.dirname(os.path.abspath(__file__))
+user_dir = os.path.join(user_dir, "logs")
+# 设置日志
+logger.add(f"{user_dir}/anpcore_server.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
 
 # 创建FastAPI应用
 app = create_app()

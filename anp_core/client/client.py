@@ -32,8 +32,10 @@ client_new_message_event = asyncio.Event()
 connector_running = False
 connector_thread = None
 
-# 初始化日志
-logger.add("logs/did_client.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
+user_dir = os.path.dirname(os.path.abspath(__file__))
+user_dir = os.path.join(user_dir, "logs")
+# 设置日志
+logger.add(f"{user_dir}/anpcore_client.log", rotation="1000 MB", retention="7 days", encoding="utf-8")
 
 
 async def ANP_req_notify_chat_thread(message_data):
