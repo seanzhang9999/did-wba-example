@@ -29,7 +29,7 @@ const API_ENDPOINTS = {
     sendMessage: '/api/chat/send',
     getBookmarks: '/api/bookmarks',
     addBookmark: '/api/bookmarks/add',
-    discoverAgent: '/api/discoveragent'
+    discoverAgent: '/api/find/'
 };
 
 // 初始化
@@ -689,9 +689,12 @@ async function discoverAgent(bookmark) {
         addSystemMessage('该智能体没有URL信息，无法进行发现');
         return;
     }
-    
+    console.error('发现智能体:', bookmark);
+
+
     // 添加等待提示
     const waitingMsg = document.createElement('div');
+    console.info('发现智能体:', bookmark);
     waitingMsg.className = 'system-message waiting-message discover-waiting';
     waitingMsg.textContent = '正在发现智能体...';
     chatMessages.appendChild(waitingMsg);
@@ -707,11 +710,12 @@ async function discoverAgent(bookmark) {
                 bookmark_id: bookmark.id,
                 url: bookmark.url,
                 port: bookmark.port
-            })
+            })          
         });
         
         const data = await response.json();
         
+        console.log('发现智能体:', data);
         // 移除等待提示
         const waitingElement = document.querySelector('.discover-waiting');
         if (waitingElement) {
@@ -720,8 +724,8 @@ async function discoverAgent(bookmark) {
         
         if (data.success) {
             // 更新书签的discovery字段
-            bookmark.discovery = data.discovery;
-            
+            bookmark.discovery = data.discovery.summary;
+            console.log('发现智能体:', bookmark.discovery);
             // 重新渲染书签列表
             renderBookmarks();
             

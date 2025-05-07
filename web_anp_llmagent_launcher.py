@@ -88,6 +88,13 @@ class InstanceInfo(BaseModel):
 
 # 启动一个新的anp_llmagent.py实例
 def start_instance(command: str, instance_id: str, name: Optional[str] = None, port: Optional[int] = None, did: Optional[str] = None, url: Optional[str] = None) -> bool:
+    # 如果指定了端口，先检查并清理该端口
+    if port:
+        print(f"检查端口 {port} 是否被占用")
+        # 尝试终止使用该端口的进程
+        if not kill_processes_by_port(port):
+            print(f"无法清理端口 {port}，启动实例可能会失败")
+    
     cmd = [sys.executable, os.path.join(user_dir, "anp_llmagent.py"), command]
     
     if command == "agent" and name:
@@ -200,6 +207,55 @@ def read_output(instance_id: str, process: subprocess.Popen):
             except Exception as e:
                 print(f"广播状态变更失败: {e}")
 
+# 根据端口查询并终止进程
+def kill_processes_by_port(port: int) -> bool:
+    try:
+        # 查找使用指定端口的进程
+        cmd = ["lsof", "-i", f":{port}"]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.returncode != 0 or not result.stdout.strip():
+            print(f"端口 {port} 没有被占用")
+            return True
+        
+        # 解析输出，提取PID
+        lines = result.stdout.strip().split('\n')
+        if len(lines) <= 1:  # 只有标题行，没有实际进程
+            return True
+        
+        # 从第二行开始解析（跳过标题行）
+        pids = set()
+        for line in lines[1:]:
+            parts = line.split()
+            if len(parts) > 1:
+                pids.add(parts[1])  # PID通常在第二列
+        
+        # 终止所有找到的进程
+        for pid in pids:
+            try:
+                # 先尝试正常终止
+                kill_cmd = ["kill", pid]
+                subprocess.run(kill_cmd, check=False)
+                print(f"已发送终止信号到进程 {pid}")
+                
+                # 检查进程是否仍在运行
+                time.sleep(0.5)
+                check_cmd = ["ps", "-p", pid]
+                check_result = subprocess.run(check_cmd, capture_output=True, text=True)
+                
+                # 如果进程仍在运行，强制终止
+                if check_result.returncode == 0:
+                    force_kill_cmd = ["kill", "-9", pid]
+                    subprocess.run(force_kill_cmd, check=False)
+                    print(f"已强制终止进程 {pid}")
+            except Exception as e:
+                print(f"终止进程 {pid} 时出错: {e}")
+        
+        return True
+    except Exception as e:
+        print(f"根据端口终止进程时出错: {e}")
+        return False
+
 # 停止实例
 def stop_instance(instance_id: str) -> bool:
     if instance_id not in instances:
@@ -218,6 +274,11 @@ def stop_instance(instance_id: str) -> bool:
             # 如果进程仍未结束，强制结束
             if process.poll() is None:
                 process.kill()
+        
+        # 如果实例有端口，确保该端口上的所有进程都被终止
+        port = instances[instance_id].get("port")
+        if port:
+            kill_processes_by_port(port)
         
         # 关闭日志文件
         if instances[instance_id]["log_fd"]:

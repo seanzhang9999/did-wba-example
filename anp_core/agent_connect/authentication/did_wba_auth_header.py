@@ -109,13 +109,18 @@ class DIDWbaAuthHeader:
         """Generate DID authentication header"""
         try:
             did_document = self._load_did_document()
+        
+            logging.info("尝试添加DID认证头自")
             
+
             auth_header = generate_auth_header(
                 did_document,
                 domain,
                 self._sign_callback
             )
             
+
+
             logging.info(f"Generated authentication header for domain {domain}: {auth_header[:30]}...")
             return auth_header
         except Exception as e:

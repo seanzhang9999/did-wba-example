@@ -2,6 +2,7 @@
 广告数据 API 路由.
 """
 import logging
+import os
 from typing import Dict, Optional
 from fastapi import APIRouter, Request, Header, HTTPException
 
@@ -31,11 +32,15 @@ async def get_ad_data(request: Request) -> Dict:
     # 记录访问
     logging.info(f"Advertisement data accessed by DID: {user.get('did')}")
     
+    description = os.getenv("description")
+    if description is None:
+        description = "这是一个示例广告数据，需要 DID WBA 认证才能访问"
+
     # 返回广告数据
     return {
         "id": "123456",
         "name": "示例广告",
-        "description": "这是一个示例广告数据，需要 DID WBA 认证才能访问",
+        "description": description,
         "created_by": user.get("did"),
         "timestamp": "2025-04-21T00:00:00Z",
         "content": {

@@ -9,6 +9,7 @@ import re
 from urllib.parse import urlparse
 from pathlib import Path
 from typing import Dict, List, Optional, Any
+from datetime import datetime
 from openai import AsyncAzureOpenAI
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +27,66 @@ from web_anp_llmapp import (
     client_chat_messages, client_new_message_event
 )
 
+# 导入所需的库
+import os
+import httpx
+import asyncio
+
+# 添加大模型处理函数
+async def llm_handler(message: str, chat_history: List[Dict[str, Any]]):
+    """
+    大模型处理函数，基于聊天历史和当前消息生成回复
+    """
+    OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+    
+    if not OPENROUTER_API_KEY:
+        error_msg = "OpenRouter API key未配置，请在环境变量中设置OPENROUTER_API_KEY"
+        return error_msg
+    
+    # 构建消息历史
+    messages = [
+        {"role": "system", "content": "你是一个智能助手，请根据用户的提问进行专业、简洁的回复。"}
+    ]
+    
+    # 添加聊天历史
+    for item in chat_history:
+        if item["type"] == "user":
+            messages.append({"role": "user", "content": item["message"]})
+        elif item["type"] == "assistant" and not item.get("from_agent", False):
+            messages.append({"role": "assistant", "content": item["message"]})
+    
+    # 确保最后一条消息是当前用户消息
+    if not messages[-1]["role"] == "user" or not messages[-1]["content"] == message:
+        messages.append({"role": "user", "content": message})
+    
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": "deepseek/deepseek-chat-v3-0324:free",
+        "messages": messages,
+        "max_tokens": 512
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(OPENROUTER_API_URL, headers=headers, json=payload)
+            if resp.status_code != 200:
+                error_msg = f"API请求失败: {resp.status_code} - {resp.text}"
+                return error_msg
+            
+            response_data = resp.json()
+            assistant_message = response_data["choices"][0]["message"]["content"]
+            return assistant_message
+    except Exception as e:
+        error_msg = f"处理请求时出错: {str(e)}"
+        return error_msg
+
+
+
 # 创建FastAPI应用
 app = FastAPI(title="DID WBA Web API", description="为DID WBA Web界面提供API接口")
 
@@ -37,6 +98,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 
 # 挂载静态文件目录
 app.mount("/static", StaticFiles(directory="static/chat"), name="static")
@@ -58,6 +121,13 @@ class Bookmark(BaseModel):
     url: Optional[str] = None
     port: Optional[str] = None
     discovery: Optional[str] = None
+
+
+# 定义发现智能体请求模型
+class DiscoverAgentRequest(BaseModel):
+    bookmark_id: str
+    url: str
+    port: str
 
 # 存储智能体书签
 bookmarks: List[Bookmark] = []
@@ -511,68 +581,248 @@ async def delete_bookmark(bookmark_id: str):
         logging.error(f"删除书签出错: {e}")
         return {"success": False, "message": str(e)}
 
-# 导入所需的库
-import os
-import httpx
-import asyncio
 
-# 添加大模型处理函数
-async def llm_handler(message: str, chat_history: List[Dict[str, Any]]):
-    """
-    大模型处理函数，基于聊天历史和当前消息生成回复
-    """
-    OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-    
-    if not OPENROUTER_API_KEY:
-        error_msg = "OpenRouter API key未配置，请在环境变量中设置OPENROUTER_API_KEY"
-        return error_msg
-    
-    # 构建消息历史
-    messages = [
-        {"role": "system", "content": "你是一个智能助手，请根据用户的提问进行专业、简洁的回复。"}
-    ]
-    
-    # 添加聊天历史
-    for item in chat_history:
-        if item["type"] == "user":
-            messages.append({"role": "user", "content": item["message"]})
-        elif item["type"] == "assistant" and not item.get("from_agent", False):
-            messages.append({"role": "assistant", "content": item["message"]})
-    
-    # 确保最后一条消息是当前用户消息
-    if not messages[-1]["role"] == "user" or not messages[-1]["content"] == message:
-        messages.append({"role": "user", "content": message})
-    
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "model": "deepseek/deepseek-chat-v3-0324:free",
-        "messages": messages,
-        "max_tokens": 512
-    }
-    
+# 发现智能体细节描述
+@app.post("/api/find/")
+async def discoveragent(request: DiscoverAgentRequest):
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(OPENROUTER_API_URL, headers=headers, json=payload)
-            if resp.status_code != 200:
-                error_msg = f"API请求失败: {resp.status_code} - {resp.text}"
-                return error_msg
+        # 添加调试日志
+        logging.info("开始处理发现智能体请求")
+        
+        # 获取请求数据
+        bookmark_id = request.bookmark_id
+        url = request.url
+        port = request.port
+        
+        # 处理请求逻辑
+        logging.info(f"处理智能体发现请求: bookmark_id={bookmark_id}, url={url}, port={port}")
+        
+        
+        # 初始化ANPTool
+        from anp_core.discover.anp_tool import ANPTool
+        anp_tool = await ANPTool.create_async()
+        
+        # 构建完整URL
+        if port:
+            full_url = f"{url}:{port}"
+        else:
+            full_url = url
+        if not full_url.startswith("http://") and not full_url.startswith("https://"):
+            full_url = "http://" + full_url
             
-            response_data = resp.json()
-            assistant_message = response_data["choices"][0]["message"]["content"]
-            return assistant_message
+        # 初始化变量
+        visited_urls = set()
+        crawled_documents = []
+        discovery_results = {}
+        
+        # 初始化OpenAI客户端
+        client = AsyncAzureOpenAI(
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT"),
+        )
+        
+        # 定义可用工具
+        def get_available_tools(anp_tool_instance):
+            return [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "anp_tool",
+                        "description": anp_tool_instance.description,
+                        "parameters": anp_tool_instance.parameters,
+                    },
+                }
+            ]
+        
+        # 处理工具调用
+        async def handle_tool_call(tool_call, messages, anp_tool, crawled_documents, visited_urls):
+            function_name = tool_call.function.name
+            function_args = json.loads(tool_call.function.arguments)
+            
+            if function_name == "anp_tool":
+                url = function_args.get("url")
+                method = function_args.get("method", "GET")
+                headers = function_args.get("headers", {})
+                params = function_args.get("params", {})
+                body = function_args.get("body")
+                
+                try:
+                    # 使用ANPTool获取URL内容
+                    result = await anp_tool.execute(
+                        url=url, method=method, headers=headers, params=params, body=body
+                    )
+                    logging.info(f"ANPTool响应 [url: {url}]")
+                    
+                    # 记录已访问的URL和获取的内容
+                    visited_urls.add(url)
+                    crawled_documents.append({"url": url, "method": method, "content": result})
+                    
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": json.dumps(result, ensure_ascii=False),
+                        }
+                    )
+                except Exception as e:
+                    logging.error(f"使用ANPTool获取URL {url}时出错: {str(e)}")
+                    
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": json.dumps(
+                                {
+                                    "error": f"获取URL失败: {url}",
+                                    "message": str(e),
+                                }
+                            ),
+                        }
+                    )
+        
+        try:
+            # 获取初始URL内容
+            initial_content = await anp_tool.execute(url=full_url)
+            visited_urls.add(full_url)
+            crawled_documents.append({"url": full_url, "method": "GET", "content": initial_content})
+            
+            logging.info(f"成功获取初始URL: {full_url}")
+            
+            # 创建提示模板
+            current_date = datetime.now().strftime("%Y-%m-%d")
+            prompt_template = f"""
+            您是一个通用智能网络数据探索工具。您的目标是通过递归访问各种数据格式（包括JSON-LD、YAML等）来查找用户需要的信息和API，以完成特定任务。
+            
+            ## 当前任务
+            探索智能体的结构和功能，找出所有可用的API端点和服务。
+            
+            ## 重要说明
+            1. 您将收到一个初始URL ({full_url})，这是一个智能体描述文件。
+            2. 您需要理解这个智能体的结构、功能和API使用方法。
+            3. 您需要像网络爬虫一样持续发现并访问新的URL和API端点。
+            4. 您可以使用anp_tool获取任何URL的内容。
+            5. 这个工具可以处理各种响应格式，包括：
+               - JSON格式：将直接解析为JSON对象。
+               - YAML格式：将返回文本内容，您需要分析其结构。
+               - 其他文本格式：将返回原始文本内容。
+            6. 阅读每个文档，查找与任务相关的信息或API端点。
+            7. 您需要自己决定爬取路径，不要等待用户指示。
+            8. 注意：您最多可以爬取5个URL，并且必须在达到此限制后结束搜索。
+            9. 前两个URL必须尝试"/ad.json"和"/agents/example/ad.json"。
+            10. 如果两个ad.json文件爬取遇到验证失败，一定要在总结中说明返回的错误。
+            11. 如果两个ad.json文件爬取成功，要将其description字段的原文在总结一开始引用。
+            
+            ## 爬取策略
+            1. 首先获取初始URL的内容，了解智能体的结构和API。
+            2. 识别文档中的所有URL和链接，特别是serviceEndpoint、url、@id等字段。
+            3. 分析API文档，了解API使用、参数和返回值。
+            4. 根据API文档构建适当的请求，查找所需信息。
+            5. 记录您访问过的所有URL，避免重复爬取。
+            6. 总结您找到的所有相关信息，并提供详细建议。
+            
+            ## 工作流程
+            1. 获取初始URL的内容，了解智能体的功能。
+            2. 分析内容，查找所有可能的链接和API文档。
+            3. 解析API文档，了解API使用方法。
+            4. 根据任务要求构建请求，获取所需信息。
+            5. 继续探索相关链接，直到找到足够的信息。
+            6. 总结信息，向用户提供最合适的建议。
+            
+            ## JSON-LD数据解析提示
+            1. 注意@context字段，它定义了数据的语义上下文。
+            2. @type字段表示实体类型，帮助您理解数据的含义。
+            3. @id字段通常是可以进一步访问的URL。
+            4. 查找serviceEndpoint、url等字段，它们通常指向API或更多数据。
+            
+            提供详细信息和清晰解释，帮助用户理解您找到的信息和您的建议。
+            
+            ## 日期
+            当前日期: {current_date}
+            """
+            
+            # 创建初始消息
+            messages = [
+                {"role": "system", "content": prompt_template},
+                {"role": "user", "content": f"请探索智能体 {full_url} 的结构和功能"},
+                {
+                    "role": "system",
+                    "content": f"我已获取初始URL的内容。以下是智能体的描述数据：\n\n```json\n{json.dumps(initial_content, ensure_ascii=False, indent=2)}\n```\n\n请分析这些数据，了解智能体的功能和API使用方法。找出您需要访问的链接，并使用anp_tool获取更多信息，以完成用户的任务。",
+                },
+            ]
+            
+            # 开始对话循环
+            max_documents = 10  # 最多爬取10个文档
+            current_iteration = 0
+            
+            while current_iteration < max_documents and len(crawled_documents) < max_documents:
+                current_iteration += 1
+                logging.info(f"开始爬取迭代 {current_iteration}/{max_documents}")
+                
+                # 获取模型响应
+                completion = await client.chat.completions.create(
+                    model=os.getenv("AZURE_OPENAI_MODEL"),
+                    messages=messages,
+                    tools=get_available_tools(anp_tool),
+                    tool_choice="auto",
+                )
+                
+                response_message = completion.choices[0].message
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": response_message.content,
+                        "tool_calls": response_message.tool_calls,
+                    }
+                )
+                
+                # 检查对话是否应该结束
+                if not response_message.tool_calls:
+                    logging.info("模型没有请求任何工具调用，结束爬取")
+                    break
+                
+                # 处理工具调用
+                for tool_call in response_message.tool_calls:
+                    await handle_tool_call(tool_call, messages, anp_tool, crawled_documents, visited_urls)
+                    
+                    # 如果达到最大爬取文档数，停止处理工具调用
+                    if len(crawled_documents) >= max_documents:
+                        break
+            
+            # 创建结果
+            discovery_results = {
+                "initial_url": full_url,
+                "agent_info": initial_content,
+                "visited_urls": list(visited_urls),
+                "crawled_documents": crawled_documents[:3],  # 只返回前3个文档以避免数据过大
+                "summary": response_message.content
+            }
+            
+            logging.info(f"智能体探索完成，共爬取了 {len(crawled_documents)} 个文档")
+        except Exception as e:
+            logging.error(f"获取智能体信息失败 {full_url}: {str(e)}")
+            return {"success": False, "message": f"获取智能体信息失败: {str(e)}"}
+        
+      
+        logging.info(f"智能体发现完成: {bookmark_id}")
+        
+        # 返回结果给前端
+        return {
+            "success": True, 
+            "message": "智能体发现成功",
+            "discovery": discovery_results  # 返回发现结果给前端
+        }
     except Exception as e:
-        error_msg = f"处理请求时出错: {str(e)}"
-        return error_msg
+        logging.error(f"处理发现智能体请求出错: {e}")
+        return {"success": False, "message": str(e)}
+    finally:
+        logging.info("处理发现智能体请求完成")
 
-# 启动服务器
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+
+
 
 
 # 加载已有的智能体书签
@@ -692,57 +942,10 @@ def check_agent_messages():
     except Exception as e:
         logging.error(f"检查智能体消息出错: {e}")
 
-# 定义发现智能体请求模型
-class DiscoverAgentRequest(BaseModel):
-    bookmark_id: str
-    url: str
-    port: str
-
-# 添加发现智能体API
-@app.post("/api/discoveragent")
-async def discoveragent(request: DiscoverAgentRequest):
-    try:
-        # 添加调试日志
-        logging.info("开始处理发现智能体请求")
-        
-        # 获取请求数据
-        bookmark_id = request.bookmark_id
-        url = request.url
-        port = request.port
-        
-        # 处理请求逻辑
-        logging.info(f"处理智能体发现请求: bookmark_id={bookmark_id}, url={url}, port={port}")
-        
-        # 查找书签
-        bookmark = next((b for b in bookmarks if b.id == bookmark_id), None)
-        if not bookmark:
-            return {"success": False, "message": "找不到指定的书签"}
-        
-        # 更新书签信息
-        bookmark.url = url
-        bookmark.port = port
-        bookmark.discovery = "completed"
-        
-        # 保存到文件
-        bookmark_dir = Path(__file__).parent / "anp_core" / "anp_bookmark"
-        bookmark_file = bookmark_dir / f"{bookmark_id}.js"
-        
-        with open(bookmark_file, "w", encoding="utf-8") as f:
-            json.dump({
-                "name": bookmark.name,
-                "did": bookmark.did or "",
-                "url": url,
-                "port": port
-            }, f, ensure_ascii=False, indent=2)
-        
-        return {"success": True}
-    except Exception as e:
-        logging.error(f"处理发现智能体请求出错: {e}")
-        return {"success": False, "message": str(e)}
-    finally:
-        logging.info("处理发现智能体请求完成")
 
 # 启动服务器
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+

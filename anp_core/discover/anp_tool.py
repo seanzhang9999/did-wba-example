@@ -2,10 +2,14 @@ import asyncio
 import json
 import yaml
 import aiohttp
+import secrets
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 import logging
+from core.config import settings
+
+from anp_core.auth.did_auth import generate_or_load_did
 
 # 尝试导入DIDWbaAuthHeader，如果不可用则设置标志
 try:
@@ -98,8 +102,14 @@ class ANPTool:
         # 只有在agent_connect模块可用时才初始化auth_client
         if HAS_AGENT_CONNECT:
             try:
+                # 使用同步方式初始化DID认证
+                unique_id = secrets.token_hex(8)
+                logging.info(f"使用唯一ID: {unique_id}")
+                
+                # 使用提供的路径初始化DIDWbaAuthHeader
                 self.auth_client = DIDWbaAuthHeader(
-                    did_document_path=did_document_path, private_key_path=private_key_path
+                    did_document_path=did_document_path,
+                    private_key_path=private_key_path
                 )
                 logging.info("DIDWbaAuthHeader初始化成功")
             except Exception as e:
@@ -108,6 +118,51 @@ class ANPTool:
         else:
             logging.warning("由于缺少必要模块，DID认证功能不可用")
             self.auth_client = None
+            
+    # 添加异步初始化方法
+    @classmethod
+    async def create_async(cls, 
+                          did_document_path: Optional[str] = None,
+                          private_key_path: Optional[str] = None,
+                          **data):
+        """异步创建ANPTool实例
+        
+        Args:
+            did_document_path (str, optional): DID文档路径
+            private_key_path (str, optional): 私钥路径
+        
+        Returns:
+            ANPTool: 初始化好的ANPTool实例
+        """
+        instance = cls(did_document_path, private_key_path, **data)
+        
+        # 如果需要异步初始化DID
+        if HAS_AGENT_CONNECT and instance.auth_client is not None:
+            try:
+                unique_id = secrets.token_hex(8)
+                logging.info(f"异步初始化DID，使用唯一ID: {unique_id}")
+                
+                # 异步获取DID文档
+                did_document, keys, user_dir = await generate_or_load_did(unique_id)
+                os.environ['did-id'] = did_document.get('id')
+                
+                # 使用settings获取文件路径
+                did_document_path = Path(user_dir) / settings.DID_DOCUMENT_FILENAME
+                private_key_path = Path(user_dir) / settings.PRIVATE_KEY_FILENAME
+                logging.info(f"DID文档路径: {did_document_path}")
+                logging.info(f"私钥路径: {private_key_path}")
+                
+                # 重新初始化auth_client
+                instance.auth_client = DIDWbaAuthHeader(
+                    did_document_path=str(did_document_path),
+                    private_key_path=str(private_key_path)
+                )
+                logging.info("异步DIDWbaAuthHeader初始化成功")
+            except Exception as e:
+                logging.error(f"异步初始化DIDWbaAuthHeader失败: {e}")
+                instance.auth_client = None
+        
+        return instance
 
     async def execute(
         self,

@@ -84,10 +84,15 @@ async def get_agent_description() -> Dict:
     Returns:
         Dict: Agent description
     """
+
+    description = "An example agent implementing DID WBA authentication"
+    if os.environ.get("description"):
+        description = os.getenv("description")
+
     return {
         "id": "example-agent-123",
         "name": "DID WBA Example Agent",
-        "description": "An example agent implementing DID WBA authentication",
+        "description": f"{description}",
         "version": "0.1.0",
         "capabilities": [
             "did-wba-authentication",

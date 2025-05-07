@@ -56,12 +56,10 @@ async def openrouter_handler(message: str, did: str, requestport: str = None):
         await notify_chat_thread(message_data, did)
         return 500, {"answer": error_msg}
     agentname = os.environ.get('AGENT_NAME')
-    if agentname == "weatherbj":
-        prompt = "你是负责北京天气查询的机器人，你首先要回复用户你的身份，然后根据用户的查询，返回当前的天气情况。"
-    elif agentname == "weatherall":
-        prompt = "你是负责北京之外天气查询的机器人，你首先要告诉用户你的身份，然后根据用户的查询，返回当前的天气情况。如果用户询问北京的天气，你可以使用"
-    else:
-        prompt = "你是一个智能助手，请根据用户的提问进行专业、简洁的回复。"
+
+    if os.environ.get("prompts"):
+        prompt = os.environ.get("prompts")
+
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json"
