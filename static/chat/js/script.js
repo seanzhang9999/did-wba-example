@@ -602,16 +602,12 @@ function renderBookmarks() {
         nameEl.className = 'bookmark-name';
         nameEl.textContent = bookmark.name;
         
+        // 显示简化的详情信息
         const detailsEl = document.createElement('div');
         detailsEl.className = 'bookmark-details';
         
-        // 添加DID、URL和端口信息（如果有）
         if (bookmark.did || bookmark.url || bookmark.port) {
-            const detailsText = [];
-            if (bookmark.did) detailsText.push(`DID: ${bookmark.did}`);
-            if (bookmark.url) detailsText.push(`URL: ${bookmark.url}`);
-            if (bookmark.port) detailsText.push(`端口: ${bookmark.port}`);
-            detailsEl.textContent = detailsText.join(' | ');
+            detailsEl.textContent = '已配置连接信息';
         } else {
             detailsEl.textContent = '未设置详细信息';
             detailsEl.classList.add('no-details');
@@ -620,8 +616,8 @@ function renderBookmarks() {
         bookmarkInfo.appendChild(nameEl);
         bookmarkInfo.appendChild(detailsEl);
         
-        // 添加发现信息（如果有）
-        if (bookmark.discovery) {
+        // 创建详情容器（包含DID、URL、端口和发现信息）
+        if ((bookmark.did || bookmark.url || bookmark.port) || bookmark.discovery) {
             const discoveryContainer = document.createElement('div');
             discoveryContainer.className = 'discovery-container';
             
@@ -639,10 +635,38 @@ function renderBookmarks() {
                 }
             };
             
-            const discoveryContent = document.createElement('pre');
+            const discoveryContent = document.createElement('div');
             discoveryContent.className = 'discovery-content';
-            discoveryContent.textContent = bookmark.discovery;
             discoveryContent.style.display = 'none';
+            
+            // 添加DID、URL和端口信息（如果有）
+            if (bookmark.did || bookmark.url || bookmark.port) {
+                const connectionInfoEl = document.createElement('div');
+                connectionInfoEl.className = 'connection-info';
+                
+                const detailsText = [];
+                if (bookmark.did) detailsText.push(`DID: ${bookmark.did}`);
+                if (bookmark.url) detailsText.push(`URL: ${bookmark.url}`);
+                if (bookmark.port) detailsText.push(`端口: ${bookmark.port}`);
+                
+                connectionInfoEl.innerHTML = `<strong>连接信息:</strong><br>${detailsText.join('<br>')}`;
+                discoveryContent.appendChild(connectionInfoEl);
+                
+                // 如果同时有发现信息，添加分隔线
+                if (bookmark.discovery) {
+                    const divider = document.createElement('hr');
+                    divider.className = 'details-divider';
+                    discoveryContent.appendChild(divider);
+                }
+            }
+            
+            // 添加发现信息（如果有）
+            if (bookmark.discovery) {
+                const discoveryInfoEl = document.createElement('pre');
+                discoveryInfoEl.className = 'discovery-info';
+                discoveryInfoEl.textContent = bookmark.discovery;
+                discoveryContent.appendChild(discoveryInfoEl);
+            }
             
             discoveryContainer.appendChild(discoveryToggle);
             discoveryContainer.appendChild(discoveryContent);

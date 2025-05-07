@@ -99,10 +99,7 @@ function initEventListeners() {
     }
     
     if (autoScrollBtn) {
-        autoScrollBtn.addEventListener('click', function() {
-            autoScroll = !autoScroll;
-            this.classList.toggle('active', autoScroll);
-        });
+        autoScrollBtn.addEventListener('click', toggleAutoScroll);
     }
     
     // 实例操作事件委托
