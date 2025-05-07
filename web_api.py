@@ -301,7 +301,7 @@ async def send_message(request: MessageRequest):
                 # 添加助手回复到聊天历史
                 chat_history.append({
                     "type": "assistant",
-                    "message": "localAI" + response,
+                    "message": "localAI：" + response,
                     "timestamp": time.time()
                 })
                 

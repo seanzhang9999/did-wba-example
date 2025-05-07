@@ -391,18 +391,23 @@ async def websocket_endpoint(websocket: WebSocket):
                         # 获取实例输出
                         instance_id = message["instance_id"]
                         if instance_id in instances:
+                            # 修改为使用output类型，保持与实时输出格式一致
+                            for line in instances[instance_id]["output"]:
+                                await websocket.send_json({
+                                    "type": "output",
+                                    "instance_id": instance_id,
+                                    "line": line
+                                })
+                            # 发送一个完成标记
                             await websocket.send_json({
-                                "type": "output_result",
-                                "success": True,
-                                "instance_id": instance_id,
-                                "output": instances[instance_id]["output"]
+                                "type": "output_complete",
+                                "instance_id": instance_id
                             })
                         else:
                             await websocket.send_json({
-                                "type": "output_result",
-                                "success": False,
-                                "instance_id": instance_id,
-                                "error": "实例不存在"
+                                "type": "error",
+                                "message": "实例不存在",
+                                "instance_id": instance_id
                             })
                 except json.JSONDecodeError:
                     await websocket.send_json({

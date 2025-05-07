@@ -230,7 +230,7 @@ async function recommendAgent() {
             
             if (recommendedAgent) {
                 // 添加推荐消息
-                addSystemMessage(`推荐使用智能体: ${recommendedAgent.name}`);
+                addSystemMessage(`基于给出的信息：${JSON.stringify(bookmarks)}，\n推荐使用智能体: ${recommendedAgent.name}`);
                 
                 // 自动选择该智能体
                 useBookmark(recommendedAgent);

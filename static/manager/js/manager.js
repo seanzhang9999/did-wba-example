@@ -197,6 +197,14 @@ function handleWebSocketMessage(message) {
             }
             break;
             
+        case 'output_complete':
+            // 处理历史输出完成标记
+            console.log('历史输出加载完成:', message.instance_id);
+            if (currentInstanceId === message.instance_id) {
+                addTerminalLine('系统', '历史输出加载完成');
+            }
+            break;
+            
         case 'status':
             // 更新实例状态
             if (instances[message.instance_id]) {
@@ -248,6 +256,11 @@ function handleWebSocketMessage(message) {
             }
             break;
             
+        case 'error':
+            // 处理错误消息
+            addTerminalLine('错误', message.message);
+            break;
+            
         case 'output_result':
             // 处理输出结果
             if (message.success) {
@@ -258,11 +271,6 @@ function handleWebSocketMessage(message) {
             } else {
                 addTerminalLine('错误', `获取输出失败: ${message.error}`);
             }
-            break;
-            
-        case 'error':
-            // 处理错误消息
-            addTerminalLine('错误', message.message);
             break;
             
         default:
