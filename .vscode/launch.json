@@ -5,6 +5,27 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "mac-debug-did-server",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/did_server.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "preLaunchTask": "mac_activate-venv",
+            "python": "${workspaceFolder}/.venv/bin/python",
+        },
+        {
+            "name": "mac-debug-did-server-clientmode",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/did_server.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "preLaunchTask": "mac_activate-venv",
+            "args": ["--client", "--port", "9988"],
+            "python": "${workspaceFolder}/.venv/bin/python",
+        },
+        {
             "name": "Python Debugger: Current File with Arguments",
             "type": "debugpy",
             "request": "launch",
