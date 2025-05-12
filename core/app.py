@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
-from api import auth_router, did_router, ad_router
+from api import auth_router, did_router, ad_router, anp_nlp_router
 from auth.auth_middleware import auth_middleware
 
 
@@ -28,7 +28,9 @@ def create_app() -> FastAPI:
     
     # Configure logging
     logging.basicConfig(
+        #level=logging.INFO,
         level=logging.INFO,
+        
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
     
@@ -50,5 +52,6 @@ def create_app() -> FastAPI:
     app.include_router(auth_router.router)
     app.include_router(did_router.router)
     app.include_router(ad_router.router)
+    app.include_router(anp_nlp_router.router)
     
     return app

@@ -11,7 +11,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.10,<4.0"
 fastapi = "^0.103.0"
 uvicorn = "^0.32.0"
 python-dotenv = "^1.0.0"
@@ -23,9 +23,14 @@ cryptography = "^43.0.3"
 canonicaljson = "^2.0.0"
 pydantic = "^2.3.0"
 pydantic-settings = "^2.0.0"
+httpx = "^0.28.1"
+mcp = {extras = ["cli"], version = ">=1.6.0"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
+
+[tool.uv.workspace]
+members = ["mcp_client_example"]
 
 [build-system]
 requires = ["poetry-core"]
